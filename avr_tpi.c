@@ -1,11 +1,11 @@
 /** 
 * @file avr_tpi.c
 * @brief TPI Programmer for ATTINT4/5/9/10
-* @details Microchip (formerly Atmel)AVR ATTINY4/5/9/10 Microporcessors can only be programmed through the TPI interface which is not compatible with the typical ISP interface for other AVR devices. 
+* @details TPI prgrammer for Microchip (formerly Atmel)AVR ATTINY4/5/9/10 Microporcessorsi using linux/raspian and ft232r bitbang mode.
+* These parts can only be programmed through the TPI interface which is not compatible with the typical ISP interface for other AVR devices. 
 *
-* The application is compatible with ubuntu/raspian and ft232r usb serial bridge using bitbang mode 
 * @version 0001
-* @date Tue 13 Nov 2018 10:29:42 PM EST
+* @date Tue 13 Nov 2018 11:16:07 PM EST
 * @author Distant-One
 * @copyright The GNU General Public License
 * 
@@ -18,6 +18,17 @@
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 * GNU General Public License for more details.
+*
+*  @attribution
+*	This source code calls functions from libftdi which licensed under GPL.
+*	All libftdi source code and executable code are subject to the libftdi license
+*	The libftdi license can be found on their website:  @see http://www.intra2net.com/en/developer/libftdi/
+*
+*	The inspiration for this approach came from Phil Burgess' "Introduction to FTDI bitbang mode"
+*	post on hackaday: @see http://hackaday.com/2009/09/22/introduction-to-ftdi-bitbang-mode/
+*	Many thanks for the tutorial and code examples.
+*
+*	FTDI Application Note Application Note AN_232R-01 Bit Bang Mode Availability for the FT232R and FT245R can be found on their website: @see https://www.ftdichip.com/Support/Documents/AppNotes/AN_232R-01_Bit_Bang_Mode_Available_For_FT232R_and_Ft245R.pdf
 */
 
 /* --- include files --- */
@@ -27,7 +38,10 @@
 /* --- global variables --- */
 
 /* --- function prototypes --- */
+/** @brief Sequence for enabling the Tiny Programming Interface */
 int tpi_enable_programming_cmd();
+/**< none no parameters at this tim */
+/**< @param[none] none no parameters at this time */
 int tpi_write_frame(unsigned char *writebyte);
 int tpi_read_frame(unsigned char *readbyte);
 int tpi_write_break();
