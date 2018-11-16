@@ -5,7 +5,7 @@
 * These parts can only be programmed through the TPI interface which is not compatible with the typical ISP interface for other AVR devices. 
 *
 * @version 0001
-* @date Tue 13 Nov 2018 11:53:56 PM EST
+* @date Thu 15 Nov 2018 10:40:37 PM EST
 * @author Distant-One
 * @copyright The GNU General Public License
 * 
@@ -27,7 +27,28 @@
 *	post on hackaday: @see http://hackaday.com/2009/09/22/introduction-to-ftdi-bitbang-mode/
 *	Many thanks for the tutorial and code examples.
 *
-*	FTDI Application Note Application Note AN_232R-01 Bit Bang Mode Availability for the FT232R and FT245R can be found on their website: (pdf warning) @see https://www.ftdichip.com/Support/Documents/AppNotes/AN_232R-01_Bit_Bang_Mode_Available_For_FT232R_and_Ft245R.pdf
+*	FTDI Application Note Application Note AN_232R-01 Bit Bang Mode Availability for the FT232R and FT245R can be found on their website: i
+*	(pdf warning) @see https://www.ftdichip.com/Support/Documents/AppNotes/AN_232R-01_Bit_Bang_Mode_Available_For_FT232R_and_Ft245R.pdf
+*
+*	@note Using libftdi (sudo apt-get install libftdi-dev) 
+*	 - FTDI programs for Linux need to be run as root, so you'll have to use sudo (sudo avr_tpi.out)
+*	@par
+*	
+*
+*	@note compiler string:
+*	 - cc avr_tpi.c -lftdi -o avr_tpi.out
+*	@par	
+*	
+*	@note Signal Assignments BASED ON ftdi ttl-232 Cable @par
+*     	PIN	WIRE	NAME	SPI	TPI
+*	1.	black	gnd	gnd	gnd
+*	2.	brown	cts	miso	n/a	
+*	3.	red	5v	5v	5v
+*	4.	orange	txd	sck	tpiclk
+*	5.	yellow	rxd	n/a	/reset
+*	6.	green	rts	mosi	tpidata
+*	@par
+*
 */
 
 /* --- include files --- */
