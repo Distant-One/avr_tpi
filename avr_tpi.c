@@ -5,7 +5,7 @@
 * These parts can only be programmed through the TPI interface which is not compatible with the typical ISP interface for other AVR devices. 
 *
 * @version 0001
-* @date Tue 20 Nov 2018 11:42:09 PM EST
+* @date Fri 23 Nov 2018 11:10:16 PM EST
 * @author Distant-One
 * @copyright The GNU General Public License
 * 
@@ -110,8 +110,9 @@ ty*
 
 /* 	Default signal mapping */
 #define TPICLK	PIN_TX	/**< Assigning TPICLK to FTDI TX PIN */
-#define TPIRESETN	PIN_RX	/**< Assigning TPIRESETN to FTDI RX PIN */
-#define TPIDATA	PIN_RTS	/**< Assigning TPIDATA to FTDI RTS PIN */
+#define TPIRESETN	PIN_RX 	/**< Assigning TPIRESETN to FTDI RX PIN */
+#define TPIDATA	PIN_RTS 	/**< Assigning TPIDATA to FTDI RTS PIN */
+#define TESTDATA	PIN_CTS	/**< Assigning TPIDATA to FTDI RTS PIN */
 
 /*	TPI Operation masks */
 #define TPI_WRITE_MASK	TPIRESETN | TPICLK | TPIDATA	/**< Signals set to outputs for TPI write */
@@ -129,7 +130,7 @@ ty*
 	#define TPI_CLK_PERIOD	10	/**< Default TPICLK is 100khz so the period is 10us */
 #endif
 #ifdef 	SLOWTPI
-	#define TPI_CLK_PERIOD	1000000	/**< Set TPICLK period to 1 second for debugging with LED's */
+	#define TPI_CLK_PERIOD	100000	/**< Set TPICLK period to 1 second for debugging with LED's */
 #endif
 #define TPI_HALF_CLK	TPI_CLK_PERIOD/2	/**< Half period for TPICLK */
 #define TPICLK_START	0	/**< TPICLK set to low for 1st half period then invert second half */
@@ -145,11 +146,12 @@ ty*
 /*	TPI frame values	*/
 #define TPI_FRAME_LEN	12	/**< TPI frame is 12 bits including st, d0-d7, parity, stop1 and stop 2 */
 #define	TPI_IDLE_BIT	TPI_WRITE_ONE_SETUP	/**< Idle bit is 1 */
-#define	TPI_ST_BIT	TPI_ZERO_ONE_SETUP	/**< Start bit is 0 */
+#define	TPI_ST_BIT	TPI_WRITE_ZERO_SETUP	/**< Start bit is 0 */
 #define	TPI_SP1_BIT	TPI_WRITE_ONE_SETUP	/**< Stop Bit 1 is 1 */
 #define TPI_SP2_BIT	TPI_WRITE_ONE_SETUP	/**< Stop Bit 2 is 1 */
 #define TPI_BREAK_BIT	TPI_ZERO_ONE_SETUP	/**< Break bit is 0 */
-#define TPI_MAX_FRAME_CNT	0x09	/**< Acccomodate SKEY instruction followed by 8 bytes */
+#define TPI_MAX_FRAME_CNT	0x09	/**< Accomodate SKEY instruction followed by 8 bytes */
+#define TPI_START_MAX_SEARCH	0x130	/**< Maximum bits to search for device to output start bit */
 
 /*	TPI Instructions	*/
 #define SLD	0x20	/**< SLD: data, PR, Serial LoaD from data space using indirect addressing */
@@ -178,13 +180,15 @@ const char nvmkey[] = {0x12, 0x89, 0xAB, 0x45, 0xCD, 0xD8, 0x88, 0xFF};
 /*	data frame bit sequence	*/
 
 enum tpiFrameSequence {
-	START,
+	SEARCHING,
+	STILLSEARCHING,
+        START,
 	D0, D1, D2, D3, D4, D5, D6, D7,
 	PARITY,
 	STOP1, STOP2
 };
 const char* tpiFrameSequenceNames[] = {"Start","D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", "Parity", "Stop1", "Stop2"};
-
+enum test { FALSE, TRUE };
 
 int vendorID = FT232R_VENDOR_ID;		/**< Default Vendor ID assignment for the ft232 chip used */
 int productID = FT232R_PRODUCT_ID;	/**< Default Product ID assignment for the ft232 chip used */
@@ -200,16 +204,15 @@ unsigned int	tpiEmableCount=TPI_ENABLE_COUNT;	/**< Default number of clocks for 
 
 /* --- function prototypes --- */
 void tpi_state_message(unsigned char *c);
-int tpi_write_mode(unsigned char bitmask, unsigned char mode);
+int programmer_direction(unsigned char bitmask, unsigned char mode);
 int tpi_enable_access();
 int programmer_write_data(unsigned char* buf,int size);
 int programmer_set_bitmode(unsigned char bitmask, unsigned char mode);
+int programmer_read_data(unsigned char* buf);
 char tpi_parity(char *c);
+int tpi_write_data(unsigned char *buf, unsigned int size);
+int tpi_read_data(unsigned char *buf, unsigned int size);
 #ifdef RUNNING
-/** @brief Sequence for writing a byte on the TPI interface */
-int tpi_write_data(unsigned char *buf, int size);
-/** @brief Sequence for reading a byte on the TPI interface */
-int tpi_read_frame(unsigned char *readbyte);
 int tpi_write_break();
 int tpi_sld_pri_cmd(unsigned char *readbyte);
 int tpi_sld_prip_cmd(unsigned char *readbyte);
@@ -262,11 +265,13 @@ int main()
         buf[cnt]=nvmkey[cnt-1];
     }
 
+    /* tpi_write_data(&buf[0], TPI_MAX_FRAME_CNT); */
+    /* tpi_write_data(&buf[0], 1); */
+    tpi_read_data(&buf[0], 4);
     #ifdef RUNNING
-    tpi_write_data(&buf[0], TPI_MAX_FRAME_CNT);
-    #endif
-    c=0xaa;
+    c=0xab;
     tpi_write_data(&c, 0x1);
+    #endif
 
     return result;
 
@@ -317,6 +322,12 @@ int programmer_write_data(unsigned char* buf,int size)
     result = ftdi_write_data(&ftdic, buf , size);
     return result;
 }
+int programmer_read_data(unsigned char* buf)
+{
+    int result=0;	/* return value */
+    result = ftdi_read_pins(&ftdic, buf);
+    return result;
+}
 
 
 /*! @brief Native programmer set bit operation and read/write mode
@@ -337,7 +348,7 @@ int programmer_set_bitmode(unsigned char bitmask, unsigned char mode)
 }
 	
 
-/*! @brief Start TPI Write Sequence 
+/*! @brief programmer read or write set up Sequence 
 *	Sequence used to set the ftdi part up for writing to the tpi bus
 * 
 * Parameters
@@ -350,16 +361,16 @@ int programmer_set_bitmode(unsigned char bitmask, unsigned char mode)
 * @return i<0	failed
 *
 */
-int tpi_write_mode(unsigned char bitmask, unsigned char mode)
+int programmer_direction(unsigned char bitmask, unsigned char mode)
 {	
     unsigned char c=0;	/* character value used to write to ftdi device */  
     int result=0;	/* return vbalue */	
-    unsigned char sdebug[40];		/* string to hold debug messages */
+    unsigned char sdebug[60];		/* string to hold debug messages */
 
     /* Set up bit bang mode using write mask */
     result = programmer_set_bitmode(bitmask, mode);
     #ifdef DEBUG_MESSAGES 
-    sprintf(sdebug, "Set FTDI Bitmode to writemask %d", bitmask) ;
+    sprintf(sdebug, "Set FTDI bitmask to %02x and bitbang mode %02x", bitmask, mode) ;
     puts(sdebug);
     tpi_state_message(&bitmask);
     #endif
@@ -389,7 +400,7 @@ int tpi_enable_access()
 
 
     /* set programmer to write mode */
-    result = tpi_write_mode(TPI_WRITE_MASK, BITMODE_BITBANG);  /* Set ftdi bitbang mode and set default signal state */
+    result = programmer_direction(TPI_WRITE_MASK, BITMODE_BITBANG);  /* Set ftdi bitbang mode and set default signal state */
     
     /* Make sure tpi is disabled to start */
     c=TPI_DISABLE;
@@ -469,6 +480,11 @@ int tpi_write_data(unsigned char *buf, unsigned int size)
     unsigned char d=0;	/* character value used to hold data byte at buff +offset */  
     int result=0;	/* return vbalue */	
     unsigned char sdebug[40];		/* string to hold debug messages */
+    int cnt=0;
+    char rst[TPI_FRAME_LEN*2];
+    char clk[TPI_FRAME_LEN*2];
+    char dat[TPI_FRAME_LEN*2];
+
 
     if (size > TPI_MAX_FRAME_CNT)
     {
@@ -478,23 +494,23 @@ int tpi_write_data(unsigned char *buf, unsigned int size)
     }
     
     /* Set up bit bang mode using write mask */
-    result = tpi_write_mode(TPI_WRITE_MASK, BITMODE_BITBANG);  
-    #ifdef DEBUG_MESSAGES 
-    sprintf(sdebug, "Set FTDI Bitmode to writemask %d", TPI_WRITE_MASK) ;
-    puts(sdebug);
-    d=TPI_WRITE_MASK;
-    tpi_state_message(&d);
-    #endif
+    result = programmer_direction(TPI_WRITE_MASK, BITMODE_BITBANG);  
 
     while (offset < size)
     {
+       	
         d=buf[offset];
+        #ifdef DEBUG_MESSAGES 
+        sprintf(sdebug, "Writing byte #%d, Value %02x", offset, d) ;
+        puts(sdebug);
+        #endif
+        cnt=0;
         for (frameCycle = START; frameCycle <= STOP2; frameCycle++)
         {
             switch(frameCycle)
             {
                 case START:
-		    c=TPI_IDLE_BIT;
+		    c=TPI_ST_BIT;
                     break;
                 case D0: 
                 case D1: 
@@ -521,27 +537,280 @@ int tpi_write_data(unsigned char *buf, unsigned int size)
                     result = -1;
             }
             result = programmer_write_data(&c, 1);
-            #ifdef DEBUG_MESSAGES 
+            #ifdef MORE_DEBUG_MESSAGES 
             sprintf(sdebug, "Frame sequence number %d", frameCycle) ;
             puts(sdebug);
             sprintf(sdebug, "Frame Setup signals  %d", c) ;
             puts(sdebug);
             tpi_state_message(&c);
             #endif
+            
+            #ifdef DEBUG_MESSAGES 
+            rst[cnt]=0x30;	/* ascii for "0" */
+            if ((c & TPIRESETN) > 0)
+            {
+               rst[cnt]=0x31;	/* ascii for "1" */
+            }
+            clk[cnt]=0x30;
+            if ((c & TPICLK) > 0)
+            {
+               clk[cnt]=0x31;
+            }
+            dat[cnt]=0x30;
+            if ((c & TPIDATA) > 0)
+            {
+               dat[cnt]=0x31;
+            }
+            cnt++;
+            #endif
             usleep(tpiHalfClk);	/* Wait half cycle  time */
 
             c = (c ^ TPICLK);	/* Invert Clock */	   
             result = programmer_write_data(&c, 1);
-            #ifdef DEBUG_MESSAGES 
+            #ifdef MORE_DEBUG_MESSAGES 
             sprintf(sdebug, "Frame Hold signals  %d", c) ;
             puts(sdebug);
             tpi_state_message(&c);
+            
+            #endif
+            #ifdef DEBUG_MESSAGES 
+            rst[cnt]=0x30;	/* ascii for "0" */
+            if ((c & TPIRESETN) > 0)
+            {
+               rst[cnt]=0x31;	/* ascii for "1" */
+            }
+            clk[cnt]=0x30;
+            if ((c & TPICLK) > 0)
+            {
+               clk[cnt]=0x31;
+            }
+            dat[cnt]=0x30;
+            if ((c & TPIDATA) > 0)
+            {
+               dat[cnt]=0x31;
+            }
+            cnt++;
             #endif
             usleep(tpiHalfClk);	/* Wait half cycle  time */
         }
         offset++;
+        rst[cnt]=0;
+        sprintf(sdebug, "rst: %s",rst);
+        puts(sdebug);
+        clk[cnt]=0;
+        sprintf(sdebug, "clk: %s",clk);
+        puts(sdebug);
+        dat[cnt]=0;
+        sprintf(sdebug, "dat: %s",dat);
+        puts(sdebug);
     }
+    return result;
 
 }
 
+
+/** @brief Sequence for reading data bytes on the TPI interface */
+int tpi_read_data(unsigned char *buf, unsigned int size)
+{
+    int offset=0;	/* offset into buf string */
+    enum tpiFrameSequence frameCycle;	/* Clock cycle in frame */
+    unsigned char c=0;	/* char value of ftdi signals used to write to ftdi device */  
+    unsigned char r=0;	/* char value read from ftdi device */  
+    int result=0;	/* return value */	
+    unsigned char sdebug[60];		/* string to hold debug messages */
+    int cnt=0;
+    char rst[(TPI_FRAME_LEN + TPI_START_MAX_SEARCH)*2];
+    char clk[(TPI_FRAME_LEN + TPI_START_MAX_SEARCH)*2];
+    char dat[(TPI_FRAME_LEN + TPI_START_MAX_SEARCH)*2];
+    char tst[(TPI_FRAME_LEN + TPI_START_MAX_SEARCH)*2];
+    int t[]={0xc5af,0xfe5a,0xd36f,0x15af,0xc5af,0xc5af,0xc5af,0xc5af,0xc5af};	/* char test byte to be sent out */
+    char maskit=0;	/* pin mask for ft232 */
+    int i=128;
+    enum test foundstartbiti=FALSE;
+    char p=0;	/* parity holder */
+
+
+    if (size > TPI_MAX_FRAME_CNT)
+    {
+        sprintf(sdebug, "TPI Read Date Buffer size %d exceeds max %d", size, TPI_MAX_FRAME_CNT);
+	puts(sdebug);
+        return -1;
+    }
+    
+    /* Set up bit bang mode using read mask */
+    #ifdef TESTDATA
+        /* result = programmer_direction((TESTDATA | TPI_READ_MASK), BITMODE_BITBANG);  */
+        maskit=TESTDATA | TPI_READ_MASK;
+    #endif
+    #ifndef TESTDATA
+        /* enable reset and clcok but set tpidata as input */
+        maskit= TPI_READ_MASK;
+    #endif
+    result = programmer_direction(maskit, BITMODE_BITBANG);
+    sprintf(sdebug, "mask = %02x, mod = %02x", maskit, BITMODE_BITBANG );
+    puts(sdebug);
+
+    while (offset < size)
+    {
+        foundstartbiti = FALSE;
+       	buf[offset]=0;
+        cnt=0;
+        for (frameCycle = SEARCHING; frameCycle <= STOP2; frameCycle++)
+        {
+            c=TPI_WRITE_ZERO_SETUP;
+            if ((0x0001 & t[offset]) > 0) 
+            {
+                c = c | TESTDATA;
+            }
+            else
+            {
+                c = c & ~TESTDATA;
+            }
+            t[offset]=t[offset]>>1;
+            result = programmer_write_data(&c, 1);	/* set clock and reset */
+            result = programmer_read_data(&r);	/* read data */
+            #ifdef MORE_DEBUG_MESSAGES 
+            sprintf(sdebug, "Frame sequence :%02x, Write Data:%02x, Read Data %02x", frameCycle, c, (r&TPIDATA) );
+            puts(sdebug);
+            tpi_state_message(&c);
+            #endif
+            
+            #ifdef DEBUG_MESSAGES 
+            rst[cnt]=0x30;	/* ascii for "0" */
+            if ((c & TPIRESETN) > 0)
+            {
+               rst[cnt]=0x31;	/* ascii for "1" */
+            }
+            clk[cnt]=0x30;
+            if ((c & TPICLK) > 0)
+            {
+               clk[cnt]=0x31;
+            }
+            dat[cnt]=0x30;
+            if ((r & TPIDATA) > 0)
+            {
+               dat[cnt]=0x31;
+            }
+            tst[cnt]=0x30;
+            if ((c & TESTDATA) > 0)
+            {
+               tst[cnt]=0x31;
+            }
+            cnt++;
+            #endif
+            usleep(tpiHalfClk);	/* Wait half cycle  time */
+
+            c = (c ^ TPICLK);	/* Invert Clock */	   
+            result = programmer_write_data(&c, 1);	/* set clock and reset */
+            result = programmer_read_data(&r);	/* read data */
+            #ifdef MORE_DEBUG_MESSAGES 
+            sprintf(sdebug, "Frame sequence :%02x, Write Data:%02x, Read Data %02x", frameCycle, c, (r&TPIDATA) );
+            puts(sdebug);
+            tpi_state_message(&c);
+            #endif
+            switch(frameCycle)
+            {
+                case D0: 
+                    buf[offset]=(((r & TPIDATA) > 0x01) ? buf[offset] | 0x01 : buf[offset] & 0xfe  );
+                    break;
+                case D1: 
+                    buf[offset]=(((r & TPIDATA) > 0x01) ? buf[offset] | 0x02 : buf[offset] & 0xfd  );
+                    break;
+                case D2: 
+                    buf[offset]=(((r & TPIDATA) > 0x01) ? buf[offset] | 0x04 : buf[offset] & 0xfb  );
+                    break;
+                case D3: 
+                    buf[offset]=(((r & TPIDATA) > 0x01) ? buf[offset] | 0x08 : buf[offset] & 0xf7  );
+                    break;
+                case D4: 
+                    buf[offset]=(((r & TPIDATA) > 0x01) ? buf[offset] | 0x10 : buf[offset] & 0xef  );
+                    break;
+                case D5: 
+                    buf[offset]=(((r & TPIDATA) > 0x01) ? buf[offset] | 0x20 : buf[offset] & 0xdf  );
+                    break;
+                case D6: 
+                    buf[offset]=(((r & TPIDATA) > 0x01) ? buf[offset] | 0x40 : buf[offset] & 0xbf  );
+                    break;
+                case D7:
+                    buf[offset]=(((r & TPIDATA) > 0x01) ? buf[offset] | 0x80 : buf[offset] & 0x7f );
+                    break;
+                case PARITY: 
+                    p=((tpi_parity(&buf[offset]) > 0) ? 0x01 : 0x00);
+                    r=(((r & TPIDATA) > 0) ? 0x01 : 0x00);
+                    if (p != r)
+                    {
+                        sprintf(sdebug, "Bad parity. Got Parity %01x Calc Parity  %01x", r , p);
+                        puts(sdebug);
+                    }
+                    break;
+                case STOP1: 
+                    p=(((r & TPIDATA) > 0) ? 0x01 : 0x00);
+                    if ( p < 1 )
+                    {
+                        puts("Bad STOP1 bit, got 0, should be 1");
+                    }
+                    break;
+                case STOP2: 
+                    p=(((r & TPIDATA) > 0) ? 0x01 : 0x00);
+                    if ( p < 1 )
+                    {
+                        puts("Bad STOP2 bit, got 0, should be 1");
+                    }
+                    break;
+            }
+            #ifdef DEBUG_MESSAGES 
+            rst[cnt]=0x30;	/* ascii for "0" */
+            if ((c & TPIRESETN) > 0)
+            {
+               rst[cnt]=0x31;	/* ascii for "1" */
+            }
+            clk[cnt]=0x30;
+            if ((c & TPICLK) > 0)
+            {
+               clk[cnt]=0x31;
+            }
+            dat[cnt]=0x30;
+            if ((r & TPIDATA) > 0)
+            {
+               dat[cnt]=0x31;
+            }
+            tst[cnt]=0x30;
+            if ((c & TESTDATA) > 0)
+            {
+               tst[cnt]=0x31;
+            }
+            cnt++;
+            #endif
+            usleep(tpiHalfClk);	/* Wait half cycle  time */
+            if (foundstartbiti == FALSE)
+	    {
+                if ((r & TPIDATA) == 0x00)
+                {
+                    foundstartbiti=TRUE;
+                    frameCycle = START;
+                }
+                else
+                {
+                    frameCycle = SEARCHING;
+                }
+             }
+        }
+        sprintf(sdebug, "Read byte #%02x value %02x", offset, buf[offset]) ;
+        puts(sdebug);
+        offset++;
+        rst[cnt]=0;
+        sprintf(sdebug, "rst: %s",rst);
+        puts(sdebug);
+        clk[cnt]=0;
+        sprintf(sdebug, "clk: %s",clk);
+        puts(sdebug);
+        dat[cnt]=0;
+        sprintf(sdebug, "dat: %s",dat);
+        puts(sdebug);
+        tst[cnt]=0;
+        sprintf(sdebug, "tst: %s",tst);
+        puts(sdebug);
+    }
+
+}
 
