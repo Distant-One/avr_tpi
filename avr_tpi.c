@@ -5,7 +5,7 @@
 * These parts can only be programmed through the TPI interface which is not compatible with the typical ISP interface for other AVR devices. 
 *
 * @version 0001
-* @date Fri 23 Nov 2018 11:10:16 PM EST
+* @date Sat 24 Nov 2018 04:14:38 PM EST
 * @author Distant-One
 * @copyright The GNU General Public License
 * 
@@ -145,13 +145,15 @@ ty*
 
 /*	TPI frame values	*/
 #define TPI_FRAME_LEN	12	/**< TPI frame is 12 bits including st, d0-d7, parity, stop1 and stop 2 */
+#define TPI_BREAK_FRAME_MIN_LEN	12	/**< Break frame 12 zero bits minimum, no start/stop/parity. At least one idle bit before and after break frame */ 
 #define	TPI_IDLE_BIT	TPI_WRITE_ONE_SETUP	/**< Idle bit is 1 */
 #define	TPI_ST_BIT	TPI_WRITE_ZERO_SETUP	/**< Start bit is 0 */
 #define	TPI_SP1_BIT	TPI_WRITE_ONE_SETUP	/**< Stop Bit 1 is 1 */
 #define TPI_SP2_BIT	TPI_WRITE_ONE_SETUP	/**< Stop Bit 2 is 1 */
-#define TPI_BREAK_BIT	TPI_ZERO_ONE_SETUP	/**< Break bit is 0 */
+#define TPI_BREAK_BIT	TPI_WRITE_ZERO_SETUP	/**< Break bit is 0 */
 #define TPI_MAX_FRAME_CNT	0x09	/**< Accomodate SKEY instruction followed by 8 bytes */
-#define TPI_START_MAX_SEARCH	0x130	/**< Maximum bits to search for device to output start bit */
+#define TPI_READ_GUARD_TIME	130	/**< Idle bits swithcing between programmer output and device output 128 default + 2  */
+#define	TPI_WRITE_GUARD_TIME	1	/**< Minumum idle bits switching between device output and programmer output */ 
 
 /*	TPI Instructions	*/
 #define SLD	0x20	/**< SLD: data, PR, Serial LoaD from data space using indirect addressing */
@@ -212,6 +214,7 @@ int programmer_read_data(unsigned char* buf);
 char tpi_parity(char *c);
 int tpi_write_data(unsigned char *buf, unsigned int size);
 int tpi_read_data(unsigned char *buf, unsigned int size);
+void accumulate_and_display_frame(unsigned char *pinmask, unsigned char *datapins, int accumulate_or_display);
 #ifdef RUNNING
 int tpi_write_break();
 int tpi_sld_pri_cmd(unsigned char *readbyte);
@@ -619,13 +622,22 @@ int tpi_read_data(unsigned char *buf, unsigned int size)
     int result=0;	/* return value */	
     unsigned char sdebug[60];		/* string to hold debug messages */
     int cnt=0;
-    char rst[(TPI_FRAME_LEN + TPI_START_MAX_SEARCH)*2];
-    char clk[(TPI_FRAME_LEN + TPI_START_MAX_SEARCH)*2];
-    char dat[(TPI_FRAME_LEN + TPI_START_MAX_SEARCH)*2];
-    char tst[(TPI_FRAME_LEN + TPI_START_MAX_SEARCH)*2];
-    int t[]={0xc5af,0xfe5a,0xd36f,0x15af,0xc5af,0xc5af,0xc5af,0xc5af,0xc5af};	/* char test byte to be sent out */
+    char rst[(TPI_FRAME_LEN + TPI_READ_GUARD_TIME)*2];
+    char clk[(TPI_FRAME_LEN + TPI_READ_GUARD_TIME)*2];
+    char dat[(TPI_FRAME_LEN + TPI_READ_GUARD_TIME)*2];
+    char tst[(TPI_FRAME_LEN + TPI_READ_GUARD_TIME)*2];
+    int t[]={0xffff,0xfc8e,0x936f,0x72af,0xc5af,0xc5af,0xc5af,0xc5af,0xc5af}; 	/* test to find start, read value, test parity, stop1 and stop 2  */
+    #ifdef RUNNING
+    int t[]={0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xfc8e}; /*  test to check start search  not timeout */ 
+    int t[]={0xc5af,0xfc8e,0x936f,0x72af,0xc5af,0xc5af,0xc5af,0xc5af,0xc5af}; 	/* test to find start, read value, test parity, stop1 and stop 2  */
+    int t[]={0xffffffff,0xffffffff,0xffffffff,0xffffffff,0xffffffff,0xfc8e}; /* test to check start search timeout */
+    int t[]={0xffffffff,0xffffffff,0xffffffff,0xf853}; /*  test to check start search  not timeout */ 
+    int t[]={0xffffffff,0xfc8e}; /*  test to check start search  not timeout */ 
+    #endif
+    int tbuffbitcnt=0;
+    int tbuffoffset=0;
     char maskit=0;	/* pin mask for ft232 */
-    int i=128;
+    int timeoutcnt=0;	/* frameCycles to wait for read start bit before bailing out */
     enum test foundstartbiti=FALSE;
     char p=0;	/* parity holder */
 
@@ -650,15 +662,21 @@ int tpi_read_data(unsigned char *buf, unsigned int size)
     sprintf(sdebug, "mask = %02x, mod = %02x", maskit, BITMODE_BITBANG );
     puts(sdebug);
 
+    tbuffoffset=0;
+    timeoutcnt=TPI_READ_GUARD_TIME+1;
     while (offset < size)
     {
         foundstartbiti = FALSE;
        	buf[offset]=0;
         cnt=0;
+        tbuffbitcnt=0;
+        
         for (frameCycle = SEARCHING; frameCycle <= STOP2; frameCycle++)
         {
             c=TPI_WRITE_ZERO_SETUP;
-            if ((0x0001 & t[offset]) > 0) 
+            sprintf(sdebug, "test bit %04x, word offset %04dx, test word %04x",tbuffbitcnt, tbuffoffset, t[tbuffoffset]);
+	    puts(sdebug);
+            if ((0x0001 & t[tbuffoffset]) > 0) 
             {
                 c = c | TESTDATA;
             }
@@ -666,7 +684,13 @@ int tpi_read_data(unsigned char *buf, unsigned int size)
             {
                 c = c & ~TESTDATA;
             }
-            t[offset]=t[offset]>>1;
+            tbuffbitcnt++;
+            if ( tbuffbitcnt > 15)
+            {
+                tbuffbitcnt=0;
+                tbuffoffset++;
+            }
+            t[tbuffoffset]=t[tbuffoffset]>>1;
             result = programmer_write_data(&c, 1);	/* set clock and reset */
             result = programmer_read_data(&r);	/* read data */
             #ifdef MORE_DEBUG_MESSAGES 
@@ -676,27 +700,7 @@ int tpi_read_data(unsigned char *buf, unsigned int size)
             #endif
             
             #ifdef DEBUG_MESSAGES 
-            rst[cnt]=0x30;	/* ascii for "0" */
-            if ((c & TPIRESETN) > 0)
-            {
-               rst[cnt]=0x31;	/* ascii for "1" */
-            }
-            clk[cnt]=0x30;
-            if ((c & TPICLK) > 0)
-            {
-               clk[cnt]=0x31;
-            }
-            dat[cnt]=0x30;
-            if ((r & TPIDATA) > 0)
-            {
-               dat[cnt]=0x31;
-            }
-            tst[cnt]=0x30;
-            if ((c & TESTDATA) > 0)
-            {
-               tst[cnt]=0x31;
-            }
-            cnt++;
+            accumulate_and_display_frame(&c, &r, 0x01);
             #endif
             usleep(tpiHalfClk);	/* Wait half cycle  time */
 
@@ -759,27 +763,7 @@ int tpi_read_data(unsigned char *buf, unsigned int size)
                     break;
             }
             #ifdef DEBUG_MESSAGES 
-            rst[cnt]=0x30;	/* ascii for "0" */
-            if ((c & TPIRESETN) > 0)
-            {
-               rst[cnt]=0x31;	/* ascii for "1" */
-            }
-            clk[cnt]=0x30;
-            if ((c & TPICLK) > 0)
-            {
-               clk[cnt]=0x31;
-            }
-            dat[cnt]=0x30;
-            if ((r & TPIDATA) > 0)
-            {
-               dat[cnt]=0x31;
-            }
-            tst[cnt]=0x30;
-            if ((c & TESTDATA) > 0)
-            {
-               tst[cnt]=0x31;
-            }
-            cnt++;
+            accumulate_and_display_frame(&c, &r, 0x01);
             #endif
             usleep(tpiHalfClk);	/* Wait half cycle  time */
             if (foundstartbiti == FALSE)
@@ -788,29 +772,94 @@ int tpi_read_data(unsigned char *buf, unsigned int size)
                 {
                     foundstartbiti=TRUE;
                     frameCycle = START;
+                    timeoutcnt=TPI_READ_GUARD_TIME+1;
                 }
                 else
                 {
                     frameCycle = SEARCHING;
+                    timeoutcnt--;
+		    sprintf(sdebug,"search count %d",timeoutcnt);
+                    puts(sdebug);
+                    if ( timeoutcnt < 1 )
+                    {
+                        sprintf(sdebug, "Timout exceeded for start bit from device %d",TPI_READ_GUARD_TIME);
+                        puts(sdebug);
+                        return -1;
+                    }
                 }
              }
         }
+        #ifdef DEBUG_MESSAGES 
         sprintf(sdebug, "Read byte #%02x value %02x", offset, buf[offset]) ;
         puts(sdebug);
+        accumulate_and_display_frame(&c, &r, 0x00);
+        #endif
         offset++;
-        rst[cnt]=0;
-        sprintf(sdebug, "rst: %s",rst);
-        puts(sdebug);
-        clk[cnt]=0;
-        sprintf(sdebug, "clk: %s",clk);
-        puts(sdebug);
-        dat[cnt]=0;
-        sprintf(sdebug, "dat: %s",dat);
-        puts(sdebug);
-        tst[cnt]=0;
-        sprintf(sdebug, "tst: %s",tst);
-        puts(sdebug);
+        tbuffoffset++;
+        puts("\n");
+        
     }
 
 }
+/** @brief debug function to display frames 
+*  @param pinmask pointer to char for control signals, data bit will be ignored 
+*  @param datapins pointer to char containing data bit, control signals will be ignored 
+*  @param accumulate_or_display sset to 1 will accumulate frame bits. Set to 0 will display accumulated frame
+*/
+void accumulate_and_display_frame(unsigned char *pinmask, unsigned char *datapins, int accumulate_or_display)
+{
+    
+    static int adcnt=0;
+    static char adrst[(TPI_FRAME_LEN + TPI_READ_GUARD_TIME)*2];
+    static char adclk[(TPI_FRAME_LEN + TPI_READ_GUARD_TIME)*2];
+    static char addat[(TPI_FRAME_LEN + TPI_READ_GUARD_TIME)*2];
+    static char adtst[(TPI_FRAME_LEN + TPI_READ_GUARD_TIME)*2];
+    static char adsdebug[(TPI_FRAME_LEN + TPI_READ_GUARD_TIME)*2];
+
+    if (accumulate_or_display > 0)	/* then accumulate */
+    {
+        
+        adrst[adcnt]=0x30;	/* ascii for "0" */
+        if ((*pinmask & TPIRESETN) > 0)
+        {
+           adrst[adcnt]=0x31;	/* ascii for "1" */
+        }
+        adclk[adcnt]=0x30;
+        if ((*pinmask & TPICLK) > 0)
+        {
+           adclk[adcnt]=0x31;
+        }
+        addat[adcnt]=0x30;
+        if ((*datapins & TPIDATA) > 0)
+        {
+           addat[adcnt]=0x31;
+        }
+        adtst[adcnt]=0x30;
+        if ((*pinmask & TESTDATA) > 0)
+        {
+           adtst[adcnt]=0x31;
+        }
+        adcnt++;
+    }
+    else	/* display accumulated frame */
+    {
+        adrst[adcnt]=0;
+        sprintf(adsdebug, "rst: %s",adrst);
+        puts(adsdebug);
+        adclk[adcnt]=0;
+        sprintf(adsdebug, "clk: %s",adclk);
+        puts(adsdebug);
+        addat[adcnt]=0;
+        sprintf(adsdebug, "dat: %s",addat);
+        puts(adsdebug);
+        adtst[adcnt]=0;
+        sprintf(adsdebug, "tst: %s",adtst);
+        puts(adsdebug);
+        
+        adcnt=0;
+    }
+}
+
+
+
 
