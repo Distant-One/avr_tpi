@@ -75,7 +75,7 @@
 
 
 /*	TPI Clock */
-#define TPI_HALF_CLK 200000 /**< set Half tpi clock period to in microseconds */
+#define TPI_HALF_CLK 5000 /**< set Half tpi clock period to in microseconds */
 #define TPI_READ_GUARD_TIME_MAX     10     /**< Idle bits swithcing between programmer output and dev    ice output 128 default + 2  */
 
 

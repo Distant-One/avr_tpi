@@ -3,7 +3,7 @@
 * @brief
 * @details 
 * @version
-* @date Wed 28 Nov 2018 06:48:14 PM EST
+* @date Wed 28 Nov 2018 11:27:44 PM EST
 * @author 
 * @copyright The GNU General Public License
 * 
@@ -40,7 +40,7 @@ char nvmkey[] = {0x12, 0x89, 0xAB, 0x45, 0xCD, 0xD8, 0x88, 0xFF};
 /* --- main --- */
 
 /* --- functions --- */
-/**! @brief Intialize the ftdi programmer 
+/** @brief Intialize the ftdi programmer 
 */
 int ftdi_programmer_init()        //Initialize the ftdi device
 {
@@ -73,7 +73,7 @@ int ftdi_set_pin_direction(unsigned char *direction)	// set ftdi pin directions
 	return result;
         
 }
-/*! @brief Even parity calculator over 9 bits
+/** @brief Even parity calculator over 9 bits
 * Parameters
 * @param *c     pointer to char to have parity calculated
 * Return values
@@ -189,6 +189,16 @@ int tpi_read_bit(unsigned char *data)
 
 	//  Set daya = 1 id TPIDATA is high
 	*data = ((buff & TPIDAT) > 0 ? 1 : 0);
+	#ifdef DEBUG
+	if (*data > 0)
+	{
+		printf("read 1 \n");
+	}
+	else
+	{
+		printf("read 0 \n");
+	}
+	#endif
 
 	return result;
 }
@@ -209,7 +219,7 @@ int tpi_read_frame(unsigned char *data)
 	
 	// skip idle bits (1) looking for start bit (0)
 	i = TPI_READ_GUARD_TIME_MAX;
-	while (i--)
+	while (i > 0)
 	{
 		result=tpi_read_bit(&buff);
                 if (buff == 0)
@@ -217,13 +227,21 @@ int tpi_read_frame(unsigned char *data)
 			//found start bit
 			break;
 		}
+		#ifdef DEBUG
+		else
+		{
+			printf("Read idle bit, i = %d \n", i);
+		}
+		#endif
+		i--;
 
 	}
-	if (i==0)	// idle count exceeeded
+	if (i < 1)	// idle count exceeeded
 	{
 		// something's wrong
 		result = -1;
-		fprintf(stderr, "Read idle bit gaurd time exceeded %d bits (code %d)\n", TPI_READ_GUARD_TIME_MAX, result);
+		fprintf(stderr, "Read idle bit gaurd time exceeded %d bits (code %d)\n", \
+TPI_READ_GUARD_TIME_MAX, result);
 		return result;
 	}
 	
@@ -240,10 +258,10 @@ int tpi_read_frame(unsigned char *data)
 	// read parity
 	result=tpi_read_bit(&read_parity);
         calc_parity=tpi_parity(data);
-	if (read_parity |= calc_parity)	// parity mismatch
+	if ((0x01 & read_parity) != (0x01 & calc_parity))	// parity mismatch
 	{	
 		result = -2;
-		fprintf(stderr, "Parity Error, Read %d, Calculated %d, (code %d\n", read_parity, calc_parity, result);
+		fprintf(stderr, "Parity Error, Read %d, Calculated %d, (code %d\n)", read_parity, calc_parity, result);
 	}
 		
 	// check two stop bits
@@ -253,7 +271,7 @@ int tpi_read_frame(unsigned char *data)
 		if (buff<1)	//stop bits should be 1 so therewas an error
 		{
 			result = -3;
-			fprintf(stderr, "Error: Stop bit #%d is 0 should be 1\n", (i+1)); 
+			fprintf(stderr, "Error: Stop bit #%d is 0 should be 1 (code %d) \n", (i+1), result); 
 		}
 	}
 	
@@ -302,17 +320,18 @@ void debug_gen_test_data(uint16_t reset_or_continue, unsigned char *data)
 {
 	// testdata[0]= 1111-start-0xca-parity-stop-stop  (tests initial tx to rx idle timei so all 16 bits needed)
 
-		//0b1101100101001111, 
+		//0b1101100101001111, 	also set testdatacnt to 16 
+		//0b0000110110010100,  	also set testdatacnt to 12 
 	//  rest of bytes aligned correctly so just send 12 bits
 	//  testdata[1]=start-0x54-bad parity 0-stop-stop (tests odd parity error)
 	//  testdata[2]=start-0x93-bad parity 1-bad stop-stop (tests bad even parity and bad stop1)
 	//  testdata[3]=start-0xbf-parity-stop-bad stop (tests bad stop2)
 	static uint16_t testdata[4] = { \
-		0b0000110110010100, \
+		0b1101100101001111, \
 		0b0000110010101000, \
 		0b0000101100100110, \
 		0b0000011101111110 };
-	static uint16_t testdatacnt[4] = {12,12,12,12};	// bit counts for each tesdata word
+	static uint16_t testdatacnt[4] = {16,12,12,12};	// bit counts for each tesdata word
 	static int wordoffset=0;
 	static int bitoffset=0;	
 	uint16_t buff=0;
@@ -321,18 +340,29 @@ void debug_gen_test_data(uint16_t reset_or_continue, unsigned char *data)
 	bitoffset=((reset_or_continue > 0) ? bitoffset : 0);	//reset bitoffset to 0
 
 	*data=((testdata[wordoffset] & (1<<bitoffset)) ? (*data | TPITST) : (*data & (~TPITST)));
+
+	#ifdef MORE_DEBUG
+	if ( (*data & TPITST ) > 0)
+	{
+		printf("TST Bit 1 \n");
+	}
+	else
+	{
+		printf("TST Bit 0 \n");
+	}
+	#endif
 	
 	buff=testdata[wordoffset];
 	buff=buff>>(testdatacnt[wordoffset] -11);
 	buff=buff & 0x00ff;
 
-	printf("Debug Current byte %04x, Current word %04x, Current Wordoffset %04x, bitoffset %04x \n",   buff , testdata[wordoffset], wordoffset, bitoffset);
+	// printf("Debug Current byte %04x, Current word %04x, Current Wordoffset %04x, bitoffset %04x \n",   buff , testdata[wordoffset], wordoffset, bitoffset);
 	
 	bitoffset++;
 	bitoffset=(bitoffset < testdatacnt[wordoffset] ? bitoffset : 0);  //reset if word done
 	wordoffset=(bitoffset > 0 ? wordoffset : wordoffset + 1);	// next word
 	wordoffset=(wordoffset < 4 ? wordoffset : 0);	//start over
-	printf("Debug Next Wordoffset %04x, bitoffset %04x \n", wordoffset, bitoffset);
+	// printf("Debug Next Wordoffset %04x, bitoffset %04x \n", wordoffset, bitoffset);
 
 	// repeat reset so everything is ready for the 1st bit 
 	wordoffset=((reset_or_continue > 0) ? wordoffset : 0);	//reset wordoffset to 0
@@ -341,7 +371,7 @@ void debug_gen_test_data(uint16_t reset_or_continue, unsigned char *data)
 
 
 
-/**! @brief Initialize the tpi bus on the selected attiny device
+/** @brief Initialize the tpi bus on the selected attiny device
 *
 *  @note To enable tpi bus
 *	Set ftdi bitbang mode and pin directions, 
