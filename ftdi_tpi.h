@@ -53,15 +53,25 @@
 #ifndef TPITST	
 #define TPITST	PIN_CTS /**< TPITST (O/I) used to monitor/test TPIDAT for debugging to FTDI CTS PIN */
 #endif
-
-/*	Signal Hookup
+/*	Signal Hookup to device
 * FT232RL             Attiny4/5/9/10 (SOT-23 Pins)
 *      TX-------------TPICLK (3)
 *      RX-------------/RESET (6)
-*     CTS-----------+-TPIDAT (1)
-*                   |  <-- remove RTS connection when using an actual  device
-*     RTS--resistor-+  <-- Only used for debud. Don't use when attached to a device
+*     CTS-------------TPIDAT (1), Data can be read/written on this signal
+* 
+*/
+
+/*	Signal Hookup for tool debuging
+* FT232RL              Breadboard
+*      TX--------------(TPICLK LED) |>|--resistor--GND
+*      RX--------------(TPIRST LED) |>|--resistor--GND
+*     CTS------------+-(TPIDAT LED) |>|--resistor--GND
+*                    |  
+*     RTS-+-resistor-+ 
+*         |
+*         +-resistor---(TPITST LED) |>|--resistor--GND 
 *
+*   resistor - I've been testing with 550 Ohms, but 1k should work too.
 * 
 */
 
