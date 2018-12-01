@@ -3,7 +3,7 @@
 * @brief
 * @details 
 * @version
-* @date Sat 01 Dec 2018 06:10:00 PM EST
+* @date Sat 01 Dec 2018 06:21:40 PM EST
 * @author 
 * @copyright The GNU General Public License
 * 
@@ -471,6 +471,7 @@ int tpi_init()	//init the tpi interface and attiny device
 	tpi_control_store(TPIPCR, 0x07);
 	// Check TPI gaurd time was written
 	tpi_control_read(TPIPCR, &data);
+	data=0;	//clear data
 	printf("TPIPCR, returns %02x \n", data);
 
 	// Check TPI ID
