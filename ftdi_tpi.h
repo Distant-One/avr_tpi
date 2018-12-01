@@ -67,11 +67,15 @@
 
 /*	TPI Command Words */
 #define SSTCS   0xc0    /**< SSTCS: aaaa, data, Serial STore to Control and Status space using dir    ect addressing */
+#define SLDCS	0x80	/**< SLDCS: aaaa, data, Serial LoaD data from Control and Status space using direct addressing */
 #define TPIPCR 	0x02	/**< TPIPCR: location in CSR of the rx to tx gaurd wait time */
+#define TPIIR	0x0f	/**< TPI Identification Register. Reading this location returns 0x80 */
 #define SKEY    0xe0    /**< SKEY: Key, {8{data}}xi, Serial KEY */
 #define SSTPR0  0x68    /**< SSTPR0: PR, low byte, Serial STore to Pointer Register using direct a    ddressing */
 #define SSTPR1  0x69    /**< SSTPR1: PR, high byte, Serial STore to Pointer Register using direct     addressing */
 #define SLDP    0x24    /**< SLDP: data, PR+, Serial LoaD from data space using indirect addressin    g and post increment*/
+#define SSTP    0x64    /**< SSTP: data, PR, Serial STore to  data space using indirect addressing     and post increment*/
+
 
 
 /*	TPI Clock */
@@ -101,6 +105,8 @@ void debug_gen_test_data(uint16_t reset_or_continue, unsigned char *data);
 int tpi_read_bit(unsigned char *data);
 int tpi_read_frame(unsigned char *data);
 int tpi_read_data(uint16_t address, unsigned char *data, int len);       // write byte to tpi bus
+int tpi_control_store( unsigned char reg_address, unsigned char reg_value);
+int tpi_control_read( unsigned char reg_address, unsigned char *reg_value);	//read control reg*/
 int tpi_init();	//Initialize the tpi interface
 
 /* --- main --- */

@@ -3,7 +3,7 @@
 * @brief
 * @details 
 * @version
-* @date Wed 28 Nov 2018 11:27:44 PM EST
+* @date Sat 01 Dec 2018 06:10:00 PM EST
 * @author 
 * @copyright The GNU General Public License
 * 
@@ -368,7 +368,56 @@ void debug_gen_test_data(uint16_t reset_or_continue, unsigned char *data)
 	wordoffset=((reset_or_continue > 0) ? wordoffset : 0);	//reset wordoffset to 0
 	bitoffset=((reset_or_continue > 0) ? bitoffset : 0);	//reset bitoffset to 0
 }
+/** @brief set control and status space registers
+*/
+int tpi_control_store( unsigned char reg_address, unsigned char reg_value)
+{
+	int result=0;
+	unsigned char data=0;
+	
+	// Combine SSTC command with Adress and write the command
+	data = (0xf0 & SSTCS) | ( 0x0f & reg_address);    //SSTCS command and TPIPR location
+	tpi_write_frame(&data); // Write command
+	data = reg_value;    // write register value
+	tpi_write_frame(&data);
+	
+	return result;
+}
 
+/** @brief read control and status space registers
+*/
+int tpi_control_read( unsigned char reg_address, unsigned char *reg_value)
+{
+	int result =0;
+	int i =0;
+	unsigned char data=0;
+	unsigned char pins=0;
+	
+	// Combine SLDCS command with Adress and write the command
+	data = (0xf0 & SLDCS) | ( 0x0f & reg_address);    //SSTCS command and TPIPR location
+	tpi_write_frame(&data); // Write command
+
+	//write two idles
+         // send two idles
+         pins =  (( 0x0 | TPIDAT) & (~TPIRST) & (~TPICLK)) & 0x0f; // set dat high for idle
+         for (i=0; i<2; i++)
+         {
+                 result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
+                 usleep(TPI_HALF_CLK); // wait half cycle
+ 
+                 pins = pins ^ TPICLK; //toggle clock    
+                 result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
+                 usleep(TPI_HALF_CLK); // wait half cycle
+         }
+
+	//write guard idles
+
+	//read byte
+	tpi_read_frame(&data);
+	*reg_value=data;
+
+	return result;
+}
 
 
 /** @brief Initialize the tpi bus on the selected attiny device
@@ -419,10 +468,16 @@ int tpi_init()	//init the tpi interface and attiny device
 	}
 
 	// Set tpi csr gaurd time to 0
-	data = 0x0 | SSTCS | TPIPCR;	//SSTCS command and TPIPR location
-	tpi_write_frame(&data);	// Write command
-	data = 0x07;	// 0x07 sets gaurd time to 0
-	tpi_write_frame(&data);
+	tpi_control_store(TPIPCR, 0x07);
+	// Check TPI gaurd time was written
+	tpi_control_read(TPIPCR, &data);
+	printf("TPIPCR, returns %02x \n", data);
+
+	// Check TPI ID
+	tpi_control_read( TPIIR, &data);
+	printf("TPIIR returns %02x \n", data);
+
+	#ifdef NOTNOW
 
 	// Send flash SKEY
 	data = SKEY;
@@ -435,7 +490,7 @@ int tpi_init()	//init the tpi interface and attiny device
 	// get device id
 	result=tpi_read_data(DEVICE_ID_BITS_BASE, device_id, DEVICE_ID_LEN);
 
-	
+	#endif
 
 	return result;
 
