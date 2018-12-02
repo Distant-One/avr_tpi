@@ -109,6 +109,7 @@
 int ftdi_programmer_init();	//Initialize the ftdi device
 int ftdi_set_pin_direction(uint8_t *direction);	// set ftdi pin directions
 char tpi_parity(char *c); //even parity calculator
+void tpi_write_idle_bits(unsigned int count);
 int tpi_write_frame(unsigned char *data);	// write byte to tpi bus
 int tpi_pr(uint16_t address);	//load tpi pointer register
 void debug_gen_test_data(uint16_t reset_or_continue, unsigned char *data);

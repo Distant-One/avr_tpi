@@ -3,7 +3,7 @@
 * @brief
 * @details 
 * @version
-* @date Sat 01 Dec 2018 06:21:40 PM EST
+* @date Sat 01 Dec 2018 11:57:59 PM EST
 * @author 
 * @copyright The GNU General Public License
 * 
@@ -90,6 +90,28 @@ char tpi_parity(char *c)
 	p &= 0x01;
 	return p;
 }
+void tpi_write_idle_bits(unsigned int count)
+{
+	unsigned char pins=0;
+	int i=0;
+	int result=0;
+	
+	while (count > 0)
+	{
+		pins =  (( 0x0 | TPIDAT) & (~TPIRST) & (~TPICLK)) & 0x0f; // set dat high for idle
+		for (i=0; i<2; i++)
+		{
+			result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
+			usleep(TPI_HALF_CLK); // wait half cycle
+
+			pins = pins ^ TPICLK; //toggle clock	
+			result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
+			usleep(TPI_HALF_CLK); // wait half cycle
+		}
+		count--;
+	}	 
+
+}
 
 
 int tpi_write_frame(unsigned char *data)	// write byte to tpi bus
@@ -117,16 +139,7 @@ int tpi_write_frame(unsigned char *data)	// write byte to tpi bus
 	printf("Write data %02x , Write frame %04x\n", *data, frame);
 
 	// send two idles
-	pins =  (( 0x0 | TPIDAT) & (~TPIRST) & (~TPICLK)) & 0x0f; // set dat high for idle
-	for (i=0; i<2; i++)
-	{
-		result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
-		usleep(TPI_HALF_CLK); // wait half cycle
-
-		pins = pins ^ TPICLK; //toggle clock	
-		result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
-		usleep(TPI_HALF_CLK); // wait half cycle
-	}	 
+	tpi_write_idle_bits(2);
 
 	// send 12 bit frame
 	for (i=0; i<12 ;i++)
@@ -143,9 +156,11 @@ int tpi_write_frame(unsigned char *data)	// write byte to tpi bus
 		
         }
 
+	// send two idles
+	//tpi_write_idle_bits(2);
 
 }
-/** @brief store 16 nit address in the tpi pointer register
+/** @brief store 16 bit address in the tpi pointer register
 */
 int tpi_pr(uint16_t address)
 {
@@ -397,20 +412,11 @@ int tpi_control_read( unsigned char reg_address, unsigned char *reg_value)
 	data = (0xf0 & SLDCS) | ( 0x0f & reg_address);    //SSTCS command and TPIPR location
 	tpi_write_frame(&data); // Write command
 
-	//write two idles
          // send two idles
-         pins =  (( 0x0 | TPIDAT) & (~TPIRST) & (~TPICLK)) & 0x0f; // set dat high for idle
-         for (i=0; i<2; i++)
-         {
-                 result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
-                 usleep(TPI_HALF_CLK); // wait half cycle
- 
-                 pins = pins ^ TPICLK; //toggle clock    
-                 result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
-                 usleep(TPI_HALF_CLK); // wait half cycle
-         }
+	tpi_write_idle_bits(2);
 
 	//write guard idles
+	// Not needed since init routine sets gaurd to 0
 
 	//read byte
 	tpi_read_frame(&data);
@@ -471,14 +477,15 @@ int tpi_init()	//init the tpi interface and attiny device
 	tpi_control_store(TPIPCR, 0x07);
 	// Check TPI gaurd time was written
 	tpi_control_read(TPIPCR, &data);
-	data=0;	//clear data
 	printf("TPIPCR, returns %02x \n", data);
 
 	// Check TPI ID
 	tpi_control_read( TPIIR, &data);
 	printf("TPIIR returns %02x \n", data);
 
-	#ifdef NOTNOW
+	// get device id
+	result=tpi_read_data(DEVICE_ID_BITS_BASE, device_id, DEVICE_ID_LEN);
+	
 
 	// Send flash SKEY
 	data = SKEY;
@@ -488,10 +495,10 @@ int tpi_init()	//init the tpi interface and attiny device
 		tpi_write_frame(&nvmkey[i]);	// send skey data	
 	}
 	
+
+	
 	// get device id
 	result=tpi_read_data(DEVICE_ID_BITS_BASE, device_id, DEVICE_ID_LEN);
-
-	#endif
 
 	return result;
 
