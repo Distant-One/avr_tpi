@@ -1,5 +1,9 @@
 The avr_tpi is used to program Microchip (formerly Atmel) attiny4/5/9/10 microcontrollers via the Tiny Programming Interface (TPI) interfaces since they do not support the standard isp interface.  
 
+Important
+---------
+FTDI programs for Linux need to be run as root, so you'll have to use sudo (sudo avr_tpi) or use chown to allow user access to the ftdi device
+
 Current Status
 --------------
 1. Enables TPI Access
@@ -59,9 +63,21 @@ The application environment will be linux (ubuntu and raspbian) with a ft232 usb
 *   resistor - I've been testing with 550 Ohms, but 1k should work too.
 */
 
-
-
-The ft232 usb serial bridge is the now retired ProtoBoard - Diprotodon (USB+Mix) since it offers 5v logic levels and bitbang mode
+I used the ft232 usb serial bridge is the now retired ProtoBoard - Diprotodon (USB+Mix) since it offers 5v logic levels and bitbang mode
 https://www.sparkfun.com/products/retired/8723
 
- 
+
+Inspiration and References
+--------------------------
+The inspiration for this approach came from Phil Burgess' "Introduction to FTDI bitbang mode" post on hackaday: http://hackaday.com/2009/09/22/introduction-to-ftdi-bitbang-mode/ Many thanks for the tutorial and code examples.
+
+The FTDI API documentation is available at https://www.intra2net.com/en/developer/libftdi/documentation/group__libftdi.html
+Using libftdi (sudo apt-get install libftdi-dev) 
+	 - FTDI programs for Linux need to be run as root, so you'll have to use sudo (sudo avr_tpi) or use chown to allow user access to the ftdi device
+
+cnlohr/pi_tpi GitHub project was a great help https://github.com/cnlohr/pi_tpi.   That project also references An Article about someone else doing something like this 6 years ago: https://hackaday.com/2012/08/23/programming-the-attiny10-with-an-arduino/ along with notes on initializing TPI mode: https://pcm1723.hateblo.jp/entry/20111208/1323351725
+
+
+
+
+
