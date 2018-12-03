@@ -78,6 +78,7 @@
 /*	TPI Command Words */
 #define SSTCS   0xc0    /**< SSTCS: aaaa, data, Serial STore to Control and Status space using dir    ect addressing */
 #define SLDCS	0x80	/**< SLDCS: aaaa, data, Serial LoaD data from Control and Status space using direct addressing */
+#define TPISR	0x00	/**< TPISR: location of the nvmen bit */
 #define TPIPCR 	0x02	/**< TPIPCR: location in CSR of the rx to tx gaurd wait time */
 #define TPIIR	0x0f	/**< TPI Identification Register. Reading this location returns 0x80 */
 #define SKEY    0xe0    /**< SKEY: Key, {8{data}}xi, Serial KEY */
@@ -98,7 +99,7 @@
 #define IO_SPACE_BASE	0x0000
 #define IO_LEN	(0x003f -IO_SPACE_BASE )
 #define DEVICE_ID_BITS_BASE	0x3FC0
-#define DEVICE_ID_LEN	(0x3FC3 - DEVICE_ID_BITS_BASE )
+#define DEVICE_ID_LEN	3	
 
 
 
@@ -111,6 +112,7 @@ int ftdi_set_pin_direction(uint8_t *direction);	// set ftdi pin directions
 char tpi_parity(char *c); //even parity calculator
 void tpi_write_idle_bits(unsigned int count);
 int tpi_write_frame(unsigned char *data);	// write byte to tpi bus
+int tpi_write_data(uint16_t address, unsigned char *data, int len);
 int tpi_pr(uint16_t address);	//load tpi pointer register
 void debug_gen_test_data(uint16_t reset_or_continue, unsigned char *data);
 int tpi_read_bit(unsigned char *data);

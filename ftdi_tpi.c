@@ -3,7 +3,7 @@
 * @brief
 * @details 
 * @version
-* @date Sat 01 Dec 2018 11:57:59 PM EST
+* @date Sun 02 Dec 2018 11:05:57 PM EST
 * @author 
 * @copyright The GNU General Public License
 * 
@@ -112,7 +112,34 @@ void tpi_write_idle_bits(unsigned int count)
 	}	 
 
 }
+/** @brief write one or more bytes
+*/
+int tpi_write_data(uint16_t address, unsigned char *data, int len)
+{
+	int i=0;
+	uint8_t buff=0;
+	int result=0;
+	
+	printf("write address %02x \n", address);
+        
+	// Store tpi pointer address
+	result=tpi_pr(address);
 
+	for(i=0; i<len; i++)
+	{
+		//  write comand
+		buff=SSTP;	// Serial stor Data with post increment
+		result=tpi_write_frame(&buff);
+		
+		// write byte
+		result=tpi_write_frame(&data[i]);
+		if (result < 0)	//error in frame
+		{
+			fprintf(stderr, "Error in frame aborting write (code %d)\n", result);
+		}
+	}
+	return result;
+}
 
 int tpi_write_frame(unsigned char *data)	// write byte to tpi bus
 {
@@ -139,7 +166,7 @@ int tpi_write_frame(unsigned char *data)	// write byte to tpi bus
 	printf("Write data %02x , Write frame %04x\n", *data, frame);
 
 	// send two idles
-	tpi_write_idle_bits(2);
+	//tpi_write_idle_bits(2);
 
 	// send 12 bit frame
 	for (i=0; i<12 ;i++)
@@ -293,13 +320,12 @@ TPI_READ_GUARD_TIME_MAX, result);
 	return result;
 	
 }
+/** @brief read one or more data bytes
+*/
 int tpi_read_data(uint16_t address, unsigned char *data, int len) 	// write byte to tpi bus
 {
-	unsigned char direction=0;
 	int i=0;
 	uint8_t buff=0;
-	uint8_t parity=0;
-	uint16_t frame=0;
         char pins=0;
 	int result=0;
 
@@ -445,6 +471,7 @@ int tpi_init()	//init the tpi interface and attiny device
         uint8_t i=0;
 	unsigned char data=0;
 	unsigned char device_id[DEVICE_ID_LEN];
+	
 
 	direction = (0x0 | TPIRST | TPICLK | TPIDAT) & ~TPITST; // rst, clk, dat output, tst input
 	ftdi_set_pin_direction(&direction);
@@ -460,6 +487,9 @@ int tpi_init()	//init the tpi interface and attiny device
 	usleep(2); // reset should be low for at least 2us according to data sheet
 
 	//  toggle clock  for 16 cycles (32 half clks) times to complete enable sequence
+	tpi_write_idle_bits(16);
+
+	#ifdef NOTNOW
         for( i = 0; i < 16; i++ )
 	{
 		pins = pins ^ TPICLK; //toggle clock	
@@ -472,6 +502,8 @@ int tpi_init()	//init the tpi interface and attiny device
 	
 
 	}
+	#endif
+	
 
 	// Set tpi csr gaurd time to 0
 	tpi_control_store(TPIPCR, 0x07);
@@ -483,22 +515,64 @@ int tpi_init()	//init the tpi interface and attiny device
 	tpi_control_read( TPIIR, &data);
 	printf("TPIIR returns %02x \n", data);
 
-	// get device id
-	result=tpi_read_data(DEVICE_ID_BITS_BASE, device_id, DEVICE_ID_LEN);
-	
-
 	// Send flash SKEY
-	data = SKEY;
-	tpi_write_frame(&data);	//send skey command
-	for (i=0; i<8; i++)
+		uint64_t nvm_key = 0x1289AB45CDD888FFULL;
+		data = SKEY;
+		tpi_write_frame(&data);	//send skey command
+		while(nvm_key)
+		{
+			data=(nvm_key & 0xFF);
+			tpi_write_frame(&data);	// send skey data	
+			nvm_key >>= 8;
+		} // while
+
+	//After the key has been given, the Non-Volatile Memory Enable (NVMEN) bit in the TPI Status Register (TPISR) must be polled until the Non-Volatile memory has been enabled.
+
+        for( i = 0; i < 32; i++ )
 	{
-		tpi_write_frame(&nvmkey[i]);	// send skey data	
+		tpi_control_read(TPISR, &data);
+		printf("TPISR returns %02x \n", data);
+		if (data > 0)
+		{
+			printf("NVM Enabled %02x\n", data);
+			break;
+		}
+	}
+	if (i>31)
+	{
+		printf ("NVM enable failed\n");
 	}
 	
+	// Get device id	
+	result=tpi_read_data(DEVICE_ID_BITS_BASE, device_id, DEVICE_ID_LEN);
+	printf("Device id is 0x%02x%02x%02x\n",device_id[0],device_id[1],device_id[2]);
+
+
+	#ifdef DEBUG
+	//* exit external tpi programming mode at end of testing
+	// Disable nvm
+	tpi_control_store(TPISR, 0x00);
+	tpi_control_read(TPISR, &data);
+		printf("TPISR returns %02x \n", data);
+		if (data > 0)
+		{
+			printf("NVM Still Enabled %02x\n", data);
+		}
+		else
+		{
+			printf("NVM Disabled %02x\n", data);
+		}
 
 	
-	// get device id
-	result=tpi_read_data(DEVICE_ID_BITS_BASE, device_id, DEVICE_ID_LEN);
+
+	direction = (0x0 | TPIRST | TPICLK | TPIDAT) & ~TPITST; // rst, clk, dat output, tst input
+	ftdi_set_pin_direction(&direction);
+	
+	pins = 0x0 | TPIRST | TPICLK | TPIDAT | TPITST; // rst, clk, dat high to start
+	result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
+
+	usleep(1000); // keep pins high for about a ms
+	#endif
 
 	return result;
 
