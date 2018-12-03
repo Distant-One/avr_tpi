@@ -3,7 +3,7 @@
 * @brief
 * @details 
 * @version
-* @date Sun 02 Dec 2018 11:05:57 PM EST
+* @date Sun 02 Dec 2018 11:11:48 PM EST
 * @author 
 * @copyright The GNU General Public License
 * 
@@ -534,7 +534,7 @@ int tpi_init()	//init the tpi interface and attiny device
 		printf("TPISR returns %02x \n", data);
 		if (data > 0)
 		{
-			printf("NVM Enabled %02x\n", data);
+			printf("External Program Mode (NVM) Enabled %02x\n", data);
 			break;
 		}
 	}
@@ -560,7 +560,7 @@ int tpi_init()	//init the tpi interface and attiny device
 		}
 		else
 		{
-			printf("NVM Disabled %02x\n", data);
+			printf("External Program Mode (NVM) Disabled %02x\n", data);
 		}
 
 	
@@ -572,6 +572,8 @@ int tpi_init()	//init the tpi interface and attiny device
 	result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
 
 	usleep(1000); // keep pins high for about a ms
+
+	printf("TPI Access disabled\n");
 	#endif
 
 	return result;
