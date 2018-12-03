@@ -3,7 +3,7 @@
 * @brief
 * @details 
 * @version
-* @date Tue 27 Nov 2018 05:14:21 PM EST
+* @date Mon 03 Dec 2018 02:18:24 PM EST
 * @author 
 * @copyright The GNU General Public License
 * 
@@ -42,6 +42,7 @@
 int main()
 {
 	int result=0;
+	uint32_t device_id;
 
 	result=ftdi_programmer_init();
         if (result < 0)
@@ -50,10 +51,17 @@ int main()
 		exit( -3);
         }
 	
-	result=tpi_init();
+	result=tpi_init(&device_id);
         if (result < 0)
         {
 		fprintf( stderr, "Error: Can't connect to device (code: %d)\n", result);
+		exit( -3);
+        }
+	
+	result=tpi_stop();
+        if (result < 0)
+        {
+		fprintf( stderr, "Error: Can't disable tpi access (code: %d)\n", result);
 		exit( -3);
         }
 	

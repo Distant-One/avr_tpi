@@ -120,7 +120,12 @@ int tpi_read_frame(unsigned char *data);
 int tpi_read_data(uint16_t address, unsigned char *data, int len);       // write byte to tpi bus
 int tpi_control_store( unsigned char reg_address, unsigned char reg_value);
 int tpi_control_read( unsigned char reg_address, unsigned char *reg_value);	//read control reg*/
+int tpi_disable_external_program_mode();	//disable external nvm mode
+int tpi_enable_external_program_mode();	//enable exteral nvm mode
+void tpi_disable();	//disable tpi bus
+int tpi_enable_tpi_access();	//enable tpi bus
 int tpi_init();	//Initialize the tpi interface
+int tpi_stop();	//Disable external program mode and tpi access
 
 /* --- main --- */
 

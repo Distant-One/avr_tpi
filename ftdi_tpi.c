@@ -3,7 +3,7 @@
 * @brief
 * @details 
 * @version
-* @date Sun 02 Dec 2018 11:11:48 PM EST
+* @date Mon 03 Dec 2018 02:20:20 PM EST
 * @author 
 * @copyright The GNU General Public License
 * 
@@ -234,11 +234,11 @@ int tpi_read_bit(unsigned char *data)
 	#ifdef DEBUG
 	if (*data > 0)
 	{
-		printf("read 1 \n");
+		printf("1 ");
 	}
 	else
 	{
-		printf("read 0 \n");
+		printf("0 ");
 	}
 	#endif
 
@@ -254,7 +254,8 @@ int tpi_read_frame(unsigned char *data)
 	unsigned char calc_parity=0;
 	unsigned char read_parity=0;
 	int result=0;
-
+	
+	printf("Read bit "); // begining of reading line
 	// change direction to read
 	direction = (0x0 | TPIRST | TPICLK | TPITST) & (~TPIDAT); // rst, clk, tst output, dat input
 	ftdi_set_pin_direction(&direction);
@@ -267,12 +268,15 @@ int tpi_read_frame(unsigned char *data)
                 if (buff == 0)
 		{
 			//found start bit
+			#ifdef DEBUG
+			printf("(START) ");
+			#endif
 			break;
 		}
 		#ifdef DEBUG
 		else
 		{
-			printf("Read idle bit, i = %d \n", i);
+			printf("(IDLE) ");
 		}
 		#endif
 		i--;
@@ -295,10 +299,13 @@ TPI_READ_GUARD_TIME_MAX, result);
 		result=tpi_read_bit(&buff);
 		*data=(buff>0 ? *data | 1<<i : *data );
 	}
-	printf("Read byte %02x\n",*data);
+	printf("(Read byte %02x) ",*data);
 
 	// read parity
 	result=tpi_read_bit(&read_parity);
+	#ifdef DEBUG
+	printf("(PARITY) ");
+	#endif
         calc_parity=tpi_parity(data);
 	if ((0x01 & read_parity) != (0x01 & calc_parity))	// parity mismatch
 	{	
@@ -316,6 +323,7 @@ TPI_READ_GUARD_TIME_MAX, result);
 			fprintf(stderr, "Error: Stop bit #%d is 0 should be 1 (code %d) \n", (i+1), result); 
 		}
 	}
+	printf("\n");
 	
 	return result;
 	
@@ -450,27 +458,94 @@ int tpi_control_read( unsigned char reg_address, unsigned char *reg_value)
 
 	return result;
 }
-
-
-/** @brief Initialize the tpi bus on the selected attiny device
-*
-*  @note To enable tpi bus
-*	Set ftdi bitbang mode and pin directions, 
-*	Set pins high to start wait a while, 
-*	Set reset low wait, and wait trst, 
-*	Set data high and run clock for 16 cycles,
-*	Set guard time from programmer tx to tpi tx to 0 in CSR,
-*	Send Flash Skey,
-*	Read device id
+/** @Brief disable external program mode by writimg 0 to nvm bit 
 */
-int tpi_init()	//init the tpi interface and attiny device
+int tpi_disable_external_program_mode()
+{
+	unsigned char data=0;
+	int result=0;
+
+	// Disable nvm
+	tpi_control_store(TPISR, 0x00);
+	tpi_control_read(TPISR, &data);
+	printf("TPISR returns %02x \n", data);
+	if (data > 0)
+	{
+		fprintf(stderr, "NVM Still Enabled %02x\n", data);
+		result = -1;
+	}
+	else
+	{
+		printf("External Program Mode (NVM) Disabled %02x\n", data);
+		result = 0;
+	}
+	return result;
+
+}
+/** @Brief Enable external program mode by sending SKEY command and data
+*/
+int tpi_enable_external_program_mode()
+{
+	int i=0;
+	int result=0;
+	unsigned char data=0;
+		
+	data = SKEY;
+	tpi_write_frame(&data);	//send skey command
+
+	for (i = 8; i > 0; i--)	// Send last byte 1st
+	{
+		data=nvmkey[i-1];
+		tpi_write_frame(&data);	// send skey data	
+	}
+
+	//After the key has been given, the Non-Volatile Memory Enable (NVMEN) bit in the TPI Status Register (TPISR) must be polled until the Non-Volatile memory has been enabled.
+
+        for( i = 0; i < 32; i++ )
+	{
+		tpi_control_read(TPISR, &data);
+		printf("TPISR returns %02x \n", data);
+		if (data & 0x02 )
+		{
+			printf("External Program Mode (NVM) Enabled %02x\n", data);
+			result =0;
+			break;
+		}
+	}
+	if (i>31)
+	{
+		printf ("NVM enable failed\n");
+		result = -1;
+	}
+	return result;
+}
+/** @brief disable  tpi bus accces on the device
+*/
+void tpi_disable()
 {
 	int result=0;
 	uint8_t direction=0x00;
 	uint8_t pins=0;
-        uint8_t i=0;
+
+	//disable tpi access
+	direction = (0x0 | TPIRST | TPICLK | TPIDAT) & ~TPITST; // rst, clk, dat output, tst input
+	ftdi_set_pin_direction(&direction);
+	
+	pins = 0x0 | TPIRST | TPICLK | TPIDAT | TPITST; // rst, clk, dat high to start
+	result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
+
+	usleep(1000); // keep pins high for about a ms
+
+	printf("TPI Access disabled\n");
+}
+/** @brief Enable tpi bus accces on the device
+*/
+int tpi_enable_tpi_access()
+{
+	int result=0;
+	uint8_t direction=0x00;
+	uint8_t pins=0;
 	unsigned char data=0;
-	unsigned char device_id[DEVICE_ID_LEN];
 	
 
 	direction = (0x0 | TPIRST | TPICLK | TPIDAT) & ~TPITST; // rst, clk, dat output, tst input
@@ -488,97 +563,86 @@ int tpi_init()	//init the tpi interface and attiny device
 
 	//  toggle clock  for 16 cycles (32 half clks) times to complete enable sequence
 	tpi_write_idle_bits(16);
-
-	#ifdef NOTNOW
-        for( i = 0; i < 16; i++ )
-	{
-		pins = pins ^ TPICLK; //toggle clock	
-		result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
-		usleep(TPI_HALF_CLK); // wait half cycle
-
-		pins = pins ^ TPICLK; //toggle clock	
-		result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
-		usleep(TPI_HALF_CLK); // wait half cycle
 	
-
-	}
-	#endif
-	
-
 	// Set tpi csr gaurd time to 0
 	tpi_control_store(TPIPCR, 0x07);
+	
 	// Check TPI gaurd time was written
 	tpi_control_read(TPIPCR, &data);
 	printf("TPIPCR, returns %02x \n", data);
 
+
 	// Check TPI ID
 	tpi_control_read( TPIIR, &data);
 	printf("TPIIR returns %02x \n", data);
-
-	// Send flash SKEY
-		uint64_t nvm_key = 0x1289AB45CDD888FFULL;
-		data = SKEY;
-		tpi_write_frame(&data);	//send skey command
-		while(nvm_key)
-		{
-			data=(nvm_key & 0xFF);
-			tpi_write_frame(&data);	// send skey data	
-			nvm_key >>= 8;
-		} // while
-
-	//After the key has been given, the Non-Volatile Memory Enable (NVMEN) bit in the TPI Status Register (TPISR) must be polled until the Non-Volatile memory has been enabled.
-
-        for( i = 0; i < 32; i++ )
+	if (data & 0x80)	//check if tpi id can be read
 	{
-		tpi_control_read(TPISR, &data);
-		printf("TPISR returns %02x \n", data);
-		if (data > 0)
-		{
-			printf("External Program Mode (NVM) Enabled %02x\n", data);
-			break;
-		}
+		printf("TPI Access Enabled %02x\n", data);
+		result=0;
 	}
-	if (i>31)
+	else
 	{
-		printf ("NVM enable failed\n");
+		result= -1;
+		fprintf(stderr, "TPI Access cannot be enabled (code %d)",result);
 	}
-	
-	// Get device id	
-	result=tpi_read_data(DEVICE_ID_BITS_BASE, device_id, DEVICE_ID_LEN);
-	printf("Device id is 0x%02x%02x%02x\n",device_id[0],device_id[1],device_id[2]);
-
-
-	#ifdef DEBUG
-	//* exit external tpi programming mode at end of testing
-	// Disable nvm
-	tpi_control_store(TPISR, 0x00);
-	tpi_control_read(TPISR, &data);
-		printf("TPISR returns %02x \n", data);
-		if (data > 0)
-		{
-			printf("NVM Still Enabled %02x\n", data);
-		}
-		else
-		{
-			printf("External Program Mode (NVM) Disabled %02x\n", data);
-		}
-
-	
-
-	direction = (0x0 | TPIRST | TPICLK | TPIDAT) & ~TPITST; // rst, clk, dat output, tst input
-	ftdi_set_pin_direction(&direction);
-	
-	pins = 0x0 | TPIRST | TPICLK | TPIDAT | TPITST; // rst, clk, dat high to start
-	result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
-
-	usleep(1000); // keep pins high for about a ms
-
-	printf("TPI Access disabled\n");
-	#endif
 
 	return result;
 
 }
+
+
+
+
+/** @brief Initialize the tpi bus on the selected attiny device
+*
+*  @note To enable tpi bus
+*	Set ftdi bitbang mode and pin directions, 
+*	Set pins high to start wait a while, 
+*	Set reset low wait, and wait trst, 
+*	Set data high and run clock for 16 cycles,
+*	Set guard time from programmer tx to tpi tx to 0 in CSR,
+*	Send Flash Skey,
+*	Read device id
+*/
+int tpi_init(uint32_t *device_id)	//init the tpi interface and attiny device
+{
+	int result=0;
+	uint8_t direction=0x00;
+	uint8_t pins=0;
+        uint8_t i=0;
+	unsigned char data=0;
+	unsigned char buff[DEVICE_ID_LEN];
+
+	//enable tpi access	
+	result=tpi_enable_tpi_access();
+	
+	//Enable External Program (nvm) mode
+	result=tpi_enable_external_program_mode();
+
+	// Get device id	
+	result=tpi_read_data(DEVICE_ID_BITS_BASE, buff, DEVICE_ID_LEN);
+	*device_id = buff[0]<<16 | buff[1]<<8 | buff[2];
+	printf("Device id is 0x%06x\n",*device_id);
+
+	return result;
+
+}
+/** @brief disables external program mode and tpi access
+*/
+int tpi_stop()
+{
+	int result=0;
+	// exit external tpi programming mode at end of testing
+	// Disable nvm
+	result=tpi_disable_external_program_mode();
+	
+	//disable tpi access
+	tpi_disable();
+
+	return result;
+
+}
+
 		
 
         
