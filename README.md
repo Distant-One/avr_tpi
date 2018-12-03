@@ -1,5 +1,29 @@
 The avr_tpi is used to program Microchip (formerly Atmel) attiny4/5/9/10 microcontrollers via the Tiny Programming Interface (TPI) interfaces since they do not support the standard isp interface.  
 
+Current Status
+--------------
+1. Enables TPI Access
+2. Enables External Program Acces
+3. Reads/Writes TPI with idle, start, parity and stop bit checking/generation
+4. Reads/writes control and status register
+5. Reads device ID
+6. Disables External Program Access
+7. Disables TPI Access
+
+To Do
+-----
+1. Read/Write flash
+2. Read commandline Args
+3. Read Hex File
+4. Program Flash from hex file
+5. Dump flash to hex file
+6. Compare flash to hex file
+7. Clean up debug code. etc.
+
+
+Details
+-------
+
 A few points of interest:
 1. The Tiny Programming Interface (TPI) requires three signals:
    /RESET: Tiny Programming Interface enable input to device and output from programmer.
