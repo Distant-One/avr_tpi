@@ -82,6 +82,8 @@ I may try to emulate some of the applicable command line arguments in the avrosp
 |Parameter	|Description|
 |-d<name>	|Device name. Must be applied when programming the device.| 
 |-if<infile>	|Name of Flash input file. Required for programming or verification of the Flash memory. The file format is Intel Extended HEX. |
+	
+	
 -ie<infile>	Name of EEPROM input file. Required for programming or verification of the EEPROM memory. The file format is Intel Extended HEX. 
 -of<outfile>	Name of Flash output file. Required for readout of the Flash memory. The file format is Intel Extended HEX. 
 -oe<outfile>	Name of EEPROM output file. Required for readout of the EEPROM memory. The file format is Intel Extended HEX. 
