@@ -79,10 +79,10 @@ cnlohr/pi_tpi GitHub project was a great help https://github.com/cnlohr/pi_tpi. 
 
 I may try to emulate some of the applicable command line arguments in the avrosp AVR911: AVR Open-source Programmer for tinyAVR and megaAVR devices: https://www.microchip.com/wwwAppNotes/AppNotes.aspx?appnote=en591218
 
-|Parameter	|Description|
-|---------------|-----------|
-|-d<name>	|Device name. Must be applied when programming the device.| 
-|-if<infile>	|Name of Flash input file. Required for programming or verification of the Flash memory. The file format is Intel Extended HEX. |
+Parameter	|Description
+ ---------------|-----------
+-d<name>	|Device name. Must be applied when programming the device.
+-if<infile>	|Name of Flash input file. Required for programming or verification of the Flash memory. The file format is Intel Extended HEX. 
 	
 	
 -ie<infile>	Name of EEPROM input file. Required for programming or verification of the EEPROM memory. The file format is Intel Extended HEX. 
