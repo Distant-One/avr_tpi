@@ -83,10 +83,8 @@ Parameter	|Description
  ---------------|-----------
 -d<name>	|Device name. Must be applied when programming the device.
 -if<infile>	|Name of Flash input file. Required for programming or verification of the Flash memory. The file format is Intel Extended HEX. 
-	
-	
--ie<infile>	Name of EEPROM input file. Required for programming or verification of the EEPROM memory. The file format is Intel Extended HEX. 
--of<outfile>	Name of Flash output file. Required for readout of the Flash memory. The file format is Intel Extended HEX. 
+-ie<infile>	|Name of EEPROM input file. Required for programming or verification of the EEPROM memory. The file format is Intel Extended HEX. 
+-of<outfile>	|Name of Flash output file. Required for readout of the Flash memory. The file format is Intel Extended HEX. 
 -oe<outfile>	Name of EEPROM output file. Required for readout of the EEPROM memory. The file format is Intel Extended HEX. 
 -s	Read signature bytes. 
 -O<addr>	Read oscillator calibration byte from device. addr is optional. 
