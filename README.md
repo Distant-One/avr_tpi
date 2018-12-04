@@ -81,36 +81,36 @@ I may try to emulate some of the applicable command line arguments in the avrosp
 
 Implementation Status |Parameter	|Description
  ---|---------------|-----------
-tbd|-d\<name\>	|Device name. Must be applied when programming the device.
--if\<infile\>	|Name of Flash input file. Required for programming or verification of the Flash memory. The file format is Intel Extended HEX. 
--ie\<infile\>	|Name of EEPROM input file. Required for programming or verification of the EEPROM memory. The file format is Intel Extended HEX. 
--of\<outfile\>	|Name of Flash output file. Required for readout of the Flash memory. The file format is Intel Extended HEX. 
--oe\<outfile\>	|Name of EEPROM output file. Required for readout of the EEPROM memory. The file format is Intel Extended HEX. 
--s	|Read signature bytes. 
--O\<addr\>	|Read oscillator calibration byte from device. addr is optional. 
--O#\<value\>	|User-defined oscillator calibration value. Use this to provide a custom calibration value instead of reading it from the device with –O<addr>. 
--Sf\<addr\>	|Write oscillator calibration byte to Flash memory. addr is byte address. 
--Se\<addr\>	|Write oscillator calibration byte to EEPROM memory. addr is byte address. 
--e	|Erase device. The device will be erased before any other programming takes place. 
--p\<t\>	|Program device. Set t to f for Flash, e for EEPROM or b for both. Corresponding input files are required. 
--r\<t\>	|Read out device. Set t to f for Flash, e for EEPROM or b for both. Corresponding output files are required. 
--v\<t\>	|Verify device. Set t to f for Flash, e for EEPROM or b for both. Can be used with –p<t> or alone. Corresponding input files are required. 
--l\<value\>	|Set lock byte. value is an 8-bit hex value. 
--L\<value\>	|Verify lock byte. value is an 8-bit hex value to verify against. 
--y	|Read back lock byte. 
--f\<value\>	|Set fuse bytes. value is a 16-bit hex value describing the settings for the upper and lower fuse bytes. 
--E\<value\>	|Set extended fuse byte. value is an 8-bit hex value describing the extend fuse settings. 
--F\<value\>	|Verify fuse bytes. value is a 16-bit hex value to verify against. 
--G\<value\>	|Verify extended fuse byte. value is an 8-bit hex value to verify against. 
--q	|Read back fuse bytes. 
--x\<value\>	|Fill unspecified locations with a value (00-FF). The default is to not program locations not specified in the input files. 
--af\<start\>,\<stop\>	|Flash address range. Specifies the address range of operations. The default is the entire Flash. Byte addresses in hex. 
--ae\<start\>,\<stop\>	|EEPROM address range. Specifies the address range of operations. The default is the entire EEPROM. Byte addresses in hex.  
--g	|Silent operation. No output to screen. 
--z	|No progress indicator. E.g. if piping to a file for log purposes, use this option to avoid the characters used for the indicator. 
--Y\<addr\>	|Used for internal RC oscillator calibration of ATtiny4/5/9/10/20/40 devices. Refer application note AVR057 
--h	|Help information (overrides all other settings). 
--?	|Same as –h
+To do |-d\<name\>	|Device name. Must be applied when programming the device.
+To do |-if\<infile\>	|Name of Flash input file. Required for programming or verification of the Flash memory. The file format is Intel Extended HEX. 
+NA |-ie\<infile\>	|Name of EEPROM input file. Required for programming or verification of the EEPROM memory. The file format is Intel Extended HEX. 
+To do |-of\<outfile\>	|Name of Flash output file. Required for readout of the Flash memory. The file format is Intel Extended HEX. 
+NA |-oe\<outfile\>	|Name of EEPROM output file. Required for readout of the EEPROM memory. The file format is Intel Extended HEX. 
+To do |-s	|Read signature bytes. 
+To do |-O\<addr\>	|Read oscillator calibration byte from device. addr is optional. 
+To do |-O#\<value\>	|User-defined oscillator calibration value. Use this to provide a custom calibration value instead of reading it from the device with –O<addr>. 
+To do |-Sf\<addr\>	|Write oscillator calibration byte to Flash memory. addr is byte address. 
+NA |-Se\<addr\>	|Write oscillator calibration byte to EEPROM memory. addr is byte address. 
+To do |-e	|Erase device. The device will be erased before any other programming takes place. 
+To do |-p\<t\>	|Program device. Set t to f for Flash, e for EEPROM or b for both. Corresponding input files are required. 
+To do |-r\<t\>	|Read out device. Set t to f for Flash, e for EEPROM or b for both. Corresponding output files are required. 
+To do |-v\<t\>	|Verify device. Set t to f for Flash, e for EEPROM or b for both. Can be used with –p<t> or alone. Corresponding input files are required. 
+To do |-l\<value\>	|Set lock byte. value is an 8-bit hex value. 
+To do |-L\<value\>	|Verify lock byte. value is an 8-bit hex value to verify against. 
+To do |-y	|Read back lock byte. 
+To do |-f\<value\>	|Set fuse bytes. value is a 16-bit hex value describing the settings for the upper and lower fuse bytes. 
+To do |-E\<value\>	|Set extended fuse byte. value is an 8-bit hex value describing the extend fuse settings. 
+To do |-F\<value\>	|Verify fuse bytes. value is a 16-bit hex value to verify against. 
+To do |-G\<value\>	|Verify extended fuse byte. value is an 8-bit hex value to verify against. 
+To do |-q	|Read back fuse bytes. 
+To do |-x\<value\>	|Fill unspecified locations with a value (00-FF). The default is to not program locations not specified in the input files. 
+To do |-af\<start\>,\<stop\>	|Flash address range. Specifies the address range of operations. The default is the entire Flash. Byte addresses in hex. 
+NA |-ae\<start\>,\<stop\>	|EEPROM address range. Specifies the address range of operations. The default is the entire EEPROM. Byte addresses in hex.  
+To do |-g	|Silent operation. No output to screen. 
+To do |-z	|No progress indicator. E.g. if piping to a file for log purposes, use this option to avoid the characters used for the indicator. 
+To do |-Y\<addr\>	|Used for internal RC oscillator calibration of ATtiny4/5/9/10/20/40 devices. Refer application note AVR057 
+To do |-h	|Help information (overrides all other settings). 
+To do |-?	|Same as –h
 
 Example command line:
 avr_tpi –d ATtiny9 –pf –vf –if program.hex –e 
