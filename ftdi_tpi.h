@@ -109,17 +109,17 @@
 /* --- function prototypes --- */
 int ftdi_programmer_init();	//Initialize the ftdi device
 int ftdi_set_pin_direction(uint8_t *direction);	// set ftdi pin directions
-char tpi_parity(char *c); //even parity calculator
+uint8_t tpi_parity(uint8_t *c); //even parity calculator
 void tpi_write_idle_bits(unsigned int count);
-int tpi_write_frame(unsigned char *data);	// write byte to tpi bus
-int tpi_write_data(uint16_t address, unsigned char *data, int len);
+int tpi_write_frame(uint8_t *data);	// write byte to tpi bus
+int tpi_write_data(uint16_t address, uint8_t *data, int len);
 int tpi_pr(uint16_t address);	//load tpi pointer register
-void debug_gen_test_data(uint16_t reset_or_continue, unsigned char *data);
-int tpi_read_bit(unsigned char *data);
-int tpi_read_frame(unsigned char *data);
-int tpi_read_data(uint16_t address, unsigned char *data, int len);       // write byte to tpi bus
-int tpi_control_store( unsigned char reg_address, unsigned char reg_value);
-int tpi_control_read( unsigned char reg_address, unsigned char *reg_value);	//read control reg*/
+void debug_gen_test_data(uint16_t reset_or_continue, uint8_t *data);
+int tpi_read_bit(uint8_t *data);
+int tpi_read_frame(uint8_t *data);
+int tpi_read_data(uint16_t address, uint8_t *data, int len);       // write byte to tpi bus
+int tpi_control_store( uint8_t reg_address, uint8_t reg_value);
+int tpi_control_read( uint8_t reg_address, uint8_t *reg_value);	//read control reg*/
 int tpi_disable_external_program_mode();	//disable external nvm mode
 int tpi_enable_external_program_mode();	//enable exteral nvm mode
 void tpi_disable();	//disable tpi bus

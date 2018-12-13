@@ -3,7 +3,7 @@
 * @brief
 * @details 
 * @version
-* @date Mon 03 Dec 2018 02:18:24 PM EST
+* @date Thu 13 Dec 2018 04:04:20 PM EST
 * @author 
 * @copyright The GNU General Public License
 * 
@@ -24,9 +24,11 @@
 
 /* --- include files --- */
 #include <stdio.h>
+#ifndef S_SPLINT_S
 #include <ftdi.h>
-#include <stdlib.h>
 #include <argp.h>
+#endif
+#include <stdlib.h>
 #include "ftdi_tpi.h"
 
 
@@ -48,21 +50,21 @@ int main()
         if (result < 0)
         {
 		fprintf( stderr, "Error: Can't connect to programmer (code: %d)\n", result);
-		exit( -3);
+		exit(EXIT_FAILURE);
         }
 	
 	result=tpi_init(&device_id);
         if (result < 0)
         {
 		fprintf( stderr, "Error: Can't connect to device (code: %d)\n", result);
-		exit( -3);
+		exit(EXIT_FAILURE);
         }
 	
 	result=tpi_stop();
         if (result < 0)
         {
 		fprintf( stderr, "Error: Can't disable tpi access (code: %d)\n", result);
-		exit( -3);
+		exit(EXIT_FAILURE);
         }
 	
 

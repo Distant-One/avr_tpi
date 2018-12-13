@@ -3,7 +3,7 @@
 * @brief
 * @details 
 * @version
-* @date Mon 03 Dec 2018 02:20:20 PM EST
+* @date Thu 13 Dec 2018 03:57:45 PM EST
 * @author 
 * @copyright The GNU General Public License
 * 
@@ -21,9 +21,11 @@
 /* --- include files --- */
 #include "ftdi_tpi.h"
 #include <stdio.h>
+# ifndef S_SPLINT_S
 #include <ftdi.h>
-#include <stdlib.h>
 #include <unistd.h>
+#endif
+#include <stdlib.h>
 #include <string.h>
 
 
@@ -32,7 +34,7 @@
 
 /* --- global variables --- */
 struct ftdi_context ftdic;              /**<  Global FTDI context */
-char nvmkey[] = {0x12, 0x89, 0xAB, 0x45, 0xCD, 0xD8, 0x88, 0xFF};
+uint8_t nvmkey[] = {(uint8_t)0x12,(uint8_t)0x89, (uint8_t)0xAB, (uint8_t)0x45, (uint8_t)0xCD, (uint8_t)0xD8, (uint8_t)0x88, (uint8_t)0xFF};
 
 
 /* --- function prototypes --- */
@@ -60,7 +62,7 @@ int ftdi_programmer_init()        //Initialize the ftdi device
 	}
 	return result;
 }
-int ftdi_set_pin_direction(unsigned char *direction)	// set ftdi pin directions
+int ftdi_set_pin_direction(uint8_t *direction)	// set ftdi pin directions
 {
 	int result=0;
 	result = ftdi_set_bitmode(&ftdic, *direction, BITMODE_BITBANG); // set pin directions and bitbang mode
@@ -79,9 +81,9 @@ int ftdi_set_pin_direction(unsigned char *direction)	// set ftdi pin directions
 * Return values
 * @return p     returns even parity of param *c 
 */
-char tpi_parity(char *c)
+uint8_t tpi_parity(uint8_t *c)
 {
-	char p=0; /* Parity char and return character */
+	uint8_t p=(uint8_t)0; /* Parity char and return character */
 	p=*c;
 	p ^= p >> 4;
 	p ^= p >> 2;
@@ -92,13 +94,13 @@ char tpi_parity(char *c)
 }
 void tpi_write_idle_bits(unsigned int count)
 {
-	unsigned char pins=0;
+	uint8_t pins=0;
 	int i=0;
 	int result=0;
 	
 	while (count > 0)
 	{
-		pins =  (( 0x0 | TPIDAT) & (~TPIRST) & (~TPICLK)) & 0x0f; // set dat high for idle
+		pins =  (uint8_t)((( 0x0 | TPIDAT) & (~TPIRST) & (~TPICLK)) & 0x0f); // set dat high for idle
 		for (i=0; i<2; i++)
 		{
 			result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
@@ -114,13 +116,13 @@ void tpi_write_idle_bits(unsigned int count)
 }
 /** @brief write one or more bytes
 */
-int tpi_write_data(uint16_t address, unsigned char *data, int len)
+int tpi_write_data(uint16_t address, uint8_t *data, int len)
 {
 	int i=0;
 	uint8_t buff=0;
 	int result=0;
 	
-	printf("write address %02x \n", address);
+	printf("write address %04x \n", address);
         
 	// Store tpi pointer address
 	result=tpi_pr(address);
@@ -141,19 +143,19 @@ int tpi_write_data(uint16_t address, unsigned char *data, int len)
 	return result;
 }
 
-int tpi_write_frame(unsigned char *data)	// write byte to tpi bus
+int tpi_write_frame(uint8_t *data)	// write byte to tpi bus
 {
-	unsigned char direction=0;
-	int i=0;
+	uint8_t direction=0;
+	uint8_t i=0;
 	uint8_t buff=0;
 	uint8_t parity=0;
 	uint16_t frame=0;
-        char pins=0;
+        uint8_t pins=0;
 	int result=0;
 	
 
-	direction = (0x0 | TPIRST | TPICLK | TPIDAT) & ~TPITST; // rst, clk, dat output, tst input
-	ftdi_set_pin_direction(&direction);
+	direction = (uint8_t)((0x0 | TPIRST | TPICLK | TPIDAT) & ~TPITST); // rst, clk, dat output, tst input
+	result=ftdi_set_pin_direction(&direction);
 
 	buff = *data;
 	frame = (uint16_t)buff;
@@ -171,8 +173,8 @@ int tpi_write_frame(unsigned char *data)	// write byte to tpi bus
 	// send 12 bit frame
 	for (i=0; i<12 ;i++)
 	{
-		pins =  (( 0x0 | TPIDAT) & (~TPIRST) & (~TPICLK)) & 0x0f; // set dat high
-		pins = ((frame & (1<<i)) ? pins : pins ^ TPIDAT);
+		pins =  (uint8_t)((( 0x0 | TPIDAT) & (~TPIRST) & (~TPICLK)) & 0x0f); // set dat high
+		pins = (uint8_t)(((frame & (1<<i))>0) ? pins : pins ^ TPIDAT);
 	
 		result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
 		usleep(TPI_HALF_CLK); // wait half cycle
@@ -183,40 +185,38 @@ int tpi_write_frame(unsigned char *data)	// write byte to tpi bus
 		
         }
 
-	// send two idles
-	//tpi_write_idle_bits(2);
-
+	return result;
 }
 /** @brief store 16 bit address in the tpi pointer register
 */
 int tpi_pr(uint16_t address)
 {
 	int result=0;
-	unsigned char data=0;
+	uint8_t data=0;
 
 	data=SSTPR0;	//command to load low byte
-	tpi_write_frame(&data);
+	result=tpi_write_frame(&data);
 	data=(address & 0x00ff);	// lower address
-	tpi_write_frame(&data);
+	result=tpi_write_frame(&data);
 
 	
 	data=SSTPR1;	//command to load low byte
-	tpi_write_frame(&data);
+	result=tpi_write_frame(&data);
 	data=((address>>8) & 0x00ff);	// upper address
-	tpi_write_frame(&data);
+	result=tpi_write_frame(&data);
 
 	return result;
 }
 /** @brief reads a data bit from tpi and stores 1 or 0 in data
 */
-int tpi_read_bit(unsigned char *data)
+int tpi_read_bit(uint8_t *data)
 {
-	unsigned char pins=0;
-	unsigned char buff=0;
+	uint8_t pins=0;
+	uint8_t buff=0;
 	int result=0;
 	
 	//set clock low
-	pins =  (( 0x0 ) & (~TPIRST) & (~TPICLK)) & 0x0f; // clk low, rst low 
+	pins =  (uint8_t)((( 0x0 ) & (~TPIRST) & (~TPICLK)) & 0x0f); // clk low, rst low 
 	#ifdef DEBUG
 	debug_gen_test_data(1, &pins);	// debug test stream get bit
 	#endif
@@ -230,7 +230,7 @@ int tpi_read_bit(unsigned char *data)
 	usleep(TPI_HALF_CLK); // wait half cycle
 
 	//  Set daya = 1 id TPIDATA is high
-	*data = ((buff & TPIDAT) > 0 ? 1 : 0);
+	*data = (uint8_t)((buff & TPIDAT) > 0 ? 1 : 0);
 	#ifdef DEBUG
 	if (*data > 0)
 	{
@@ -246,19 +246,20 @@ int tpi_read_bit(unsigned char *data)
 }
 /** @brief reads data frame from tpi store byte in data, checks idle, parity and stop bits
 */
-int tpi_read_frame(unsigned char *data)
+int tpi_read_frame(uint8_t *data)
 {
 	int i=0;
-	unsigned char buff=0;
-	unsigned char direction=0;
-	unsigned char calc_parity=0;
-	unsigned char read_parity=0;
+	uint8_t j=0;
+	uint8_t buff=0;
+	uint8_t direction=0;
+	uint8_t calc_parity=0;
+	uint8_t read_parity=0;
 	int result=0;
 	
 	printf("Read bit "); // begining of reading line
 	// change direction to read
-	direction = (0x0 | TPIRST | TPICLK | TPITST) & (~TPIDAT); // rst, clk, tst output, dat input
-	ftdi_set_pin_direction(&direction);
+	direction = (uint8_t)((0x0 | TPIRST | TPICLK | TPITST) & (~TPIDAT)); // rst, clk, tst output, dat input
+	result=ftdi_set_pin_direction(&direction);
 	
 	// skip idle bits (1) looking for start bit (0)
 	i = TPI_READ_GUARD_TIME_MAX;
@@ -293,11 +294,11 @@ TPI_READ_GUARD_TIME_MAX, result);
 	
 	// read data byte
 	*data=0;
-	for (i=0; i<8; i++)	// GET DATA BYTE
+	for (j=0; j<8; j++)	// GET DATA BYTE
 	{
 		
 		result=tpi_read_bit(&buff);
-		*data=(buff>0 ? *data | 1<<i : *data );
+		*data=(buff>0 ? *data | 1<<j : *data );
 	}
 	printf("(Read byte %02x) ",*data);
 
@@ -330,15 +331,15 @@ TPI_READ_GUARD_TIME_MAX, result);
 }
 /** @brief read one or more data bytes
 */
-int tpi_read_data(uint16_t address, unsigned char *data, int len) 	// write byte to tpi bus
+int tpi_read_data(uint16_t address, uint8_t *data, int len) 	// write byte to tpi bus
 {
 	int i=0;
 	uint8_t buff=0;
-        char pins=0;
+        uint8_t pins=0;
 	int result=0;
 
 
-	printf("read address %02x \n", address);
+	printf("read address %04x \n", address);
         
 	// Store tpi pointer address
 	result=tpi_pr(address);
@@ -365,7 +366,7 @@ int tpi_read_data(uint16_t address, unsigned char *data, int len) 	// write byte
 
 	return result;
 }
-void debug_gen_test_data(uint16_t reset_or_continue, unsigned char *data)
+void debug_gen_test_data(uint16_t reset_or_continue, uint8_t *data)
 {
 	// testdata[0]= 1111-start-0xca-parity-stop-stop  (tests initial tx to rx idle timei so all 16 bits needed)
 
@@ -375,20 +376,17 @@ void debug_gen_test_data(uint16_t reset_or_continue, unsigned char *data)
 	//  testdata[1]=start-0x54-bad parity 0-stop-stop (tests odd parity error)
 	//  testdata[2]=start-0x93-bad parity 1-bad stop-stop (tests bad even parity and bad stop1)
 	//  testdata[3]=start-0xbf-parity-stop-bad stop (tests bad stop2)
-	static uint16_t testdata[4] = { \
-		0b1101100101001111, \
-		0b0000110010101000, \
-		0b0000101100100110, \
-		0b0000011101111110 };
+	//static uint16_t testdata[4] = { 0b1101100101001111, 0b0000110010101000, 0b0000101100100110, 0b0000011101111110 };
+	static uint16_t testdata[4] = { 0xd94f, 0x0ca8, 0x0b26, 0x077e };
 	static uint16_t testdatacnt[4] = {16,12,12,12};	// bit counts for each tesdata word
 	static int wordoffset=0;
-	static int bitoffset=0;	
+	static unsigned int bitoffset=0;	
 	uint16_t buff=0;
 
 	wordoffset=((reset_or_continue > 0) ? wordoffset : 0);	//reset wordoffset to 0
 	bitoffset=((reset_or_continue > 0) ? bitoffset : 0);	//reset bitoffset to 0
 
-	*data=((testdata[wordoffset] & (1<<bitoffset)) ? (*data | TPITST) : (*data & (~TPITST)));
+	*data=(((testdata[wordoffset] & (1<<bitoffset))>0) ? (*data | TPITST) : (*data & (~TPITST)));
 
 	#ifdef MORE_DEBUG
 	if ( (*data & TPITST ) > 0)
@@ -419,32 +417,30 @@ void debug_gen_test_data(uint16_t reset_or_continue, unsigned char *data)
 }
 /** @brief set control and status space registers
 */
-int tpi_control_store( unsigned char reg_address, unsigned char reg_value)
+int tpi_control_store( uint8_t reg_address, uint8_t reg_value)
 {
 	int result=0;
-	unsigned char data=0;
+	uint8_t data=0;
 	
 	// Combine SSTC command with Adress and write the command
 	data = (0xf0 & SSTCS) | ( 0x0f & reg_address);    //SSTCS command and TPIPR location
-	tpi_write_frame(&data); // Write command
+	result=tpi_write_frame(&data); // Write command
 	data = reg_value;    // write register value
-	tpi_write_frame(&data);
+	result=tpi_write_frame(&data);
 	
 	return result;
 }
 
 /** @brief read control and status space registers
 */
-int tpi_control_read( unsigned char reg_address, unsigned char *reg_value)
+int tpi_control_read( uint8_t reg_address, uint8_t *reg_value)
 {
 	int result =0;
-	int i =0;
-	unsigned char data=0;
-	unsigned char pins=0;
+	uint8_t data=0;
 	
 	// Combine SLDCS command with Adress and write the command
 	data = (0xf0 & SLDCS) | ( 0x0f & reg_address);    //SSTCS command and TPIPR location
-	tpi_write_frame(&data); // Write command
+	result=tpi_write_frame(&data); // Write command
 
          // send two idles
 	tpi_write_idle_bits(2);
@@ -453,7 +449,7 @@ int tpi_control_read( unsigned char reg_address, unsigned char *reg_value)
 	// Not needed since init routine sets gaurd to 0
 
 	//read byte
-	tpi_read_frame(&data);
+	result=tpi_read_frame(&data);
 	*reg_value=data;
 
 	return result;
@@ -462,12 +458,12 @@ int tpi_control_read( unsigned char reg_address, unsigned char *reg_value)
 */
 int tpi_disable_external_program_mode()
 {
-	unsigned char data=0;
+	uint8_t data=0;
 	int result=0;
 
 	// Disable nvm
-	tpi_control_store(TPISR, 0x00);
-	tpi_control_read(TPISR, &data);
+	result=tpi_control_store(TPISR, 0x00);
+	result=tpi_control_read(TPISR, &data);
 	printf("TPISR returns %02x \n", data);
 	if (data > 0)
 	{
@@ -488,24 +484,24 @@ int tpi_enable_external_program_mode()
 {
 	int i=0;
 	int result=0;
-	unsigned char data=0;
+	uint8_t data=0;
 		
 	data = SKEY;
-	tpi_write_frame(&data);	//send skey command
+	result=tpi_write_frame(&data);	//send skey command
 
 	for (i = 8; i > 0; i--)	// Send last byte 1st
 	{
 		data=nvmkey[i-1];
-		tpi_write_frame(&data);	// send skey data	
+		result=tpi_write_frame(&data);	// send skey data	
 	}
 
 	//After the key has been given, the Non-Volatile Memory Enable (NVMEN) bit in the TPI Status Register (TPISR) must be polled until the Non-Volatile memory has been enabled.
 
         for( i = 0; i < 32; i++ )
 	{
-		tpi_control_read(TPISR, &data);
+		result=tpi_control_read(TPISR, &data);
 		printf("TPISR returns %02x \n", data);
-		if (data & 0x02 )
+		if ((data & 0x02)>0 )
 		{
 			printf("External Program Mode (NVM) Enabled %02x\n", data);
 			result =0;
@@ -529,7 +525,7 @@ void tpi_disable()
 
 	//disable tpi access
 	direction = (0x0 | TPIRST | TPICLK | TPIDAT) & ~TPITST; // rst, clk, dat output, tst input
-	ftdi_set_pin_direction(&direction);
+	result=ftdi_set_pin_direction(&direction);
 	
 	pins = 0x0 | TPIRST | TPICLK | TPIDAT | TPITST; // rst, clk, dat high to start
 	result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
@@ -545,11 +541,11 @@ int tpi_enable_tpi_access()
 	int result=0;
 	uint8_t direction=0x00;
 	uint8_t pins=0;
-	unsigned char data=0;
+	uint8_t data=0;
 	
 
 	direction = (0x0 | TPIRST | TPICLK | TPIDAT) & ~TPITST; // rst, clk, dat output, tst input
-	ftdi_set_pin_direction(&direction);
+	result=ftdi_set_pin_direction(&direction);
 	
 	pins = 0x0 | TPIRST | TPICLK | TPIDAT | TPITST; // rst, clk, dat high to start
 	result = ftdi_write_data(&ftdic, &pins, 1); // write pin values
@@ -565,17 +561,17 @@ int tpi_enable_tpi_access()
 	tpi_write_idle_bits(16);
 	
 	// Set tpi csr gaurd time to 0
-	tpi_control_store(TPIPCR, 0x07);
+	result=tpi_control_store(TPIPCR, 0x07);
 	
 	// Check TPI gaurd time was written
-	tpi_control_read(TPIPCR, &data);
+	result=tpi_control_read(TPIPCR, &data);
 	printf("TPIPCR, returns %02x \n", data);
 
 
 	// Check TPI ID
-	tpi_control_read( TPIIR, &data);
+	result=tpi_control_read( TPIIR, &data);
 	printf("TPIIR returns %02x \n", data);
-	if (data & 0x80)	//check if tpi id can be read
+	if ((data & 0x80)>0)	//check if tpi id can be read
 	{
 		printf("TPI Access Enabled %02x\n", data);
 		result=0;
@@ -607,11 +603,7 @@ int tpi_enable_tpi_access()
 int tpi_init(uint32_t *device_id)	//init the tpi interface and attiny device
 {
 	int result=0;
-	uint8_t direction=0x00;
-	uint8_t pins=0;
-        uint8_t i=0;
-	unsigned char data=0;
-	unsigned char buff[DEVICE_ID_LEN];
+	uint8_t buff[DEVICE_ID_LEN]={0,0,0};
 
 	//enable tpi access	
 	result=tpi_enable_tpi_access();
@@ -620,6 +612,21 @@ int tpi_init(uint32_t *device_id)	//init the tpi interface and attiny device
 	result=tpi_enable_external_program_mode();
 
 	// Get device id	
+	/*
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	CHANGE SO THAT BUFF BELOW IS PASSED AS POINTER
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	*/
 	result=tpi_read_data(DEVICE_ID_BITS_BASE, buff, DEVICE_ID_LEN);
 	*device_id = buff[0]<<16 | buff[1]<<8 | buff[2];
 	printf("Device id is 0x%06x\n",*device_id);
