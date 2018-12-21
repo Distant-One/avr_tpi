@@ -19,12 +19,22 @@
 */
 
 /* --- include files --- */
+#include <stdio.h>
+# ifndef S_SPLINT_S
+#include <unistd.h>
+#endif
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+
 
 /* --- defines and constants --- */
 
 /* --- global variables --- */
 
 /* --- function prototypes --- */
+FILE *openfile(uint8_t *file, uint8_t *mode);	//open file for reading
 
 /* --- main --- */
 

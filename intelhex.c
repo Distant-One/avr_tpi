@@ -3,7 +3,7 @@
 * @brief
 * @details 
 * @version
-* @date Tue 18 Dec 2018 04:58:07 PM EST
+* @date Thu 20 Dec 2018 10:52:17 PM EST
 * @author 
 * @copyright The GNU General Public License
 * 
@@ -49,9 +49,21 @@
 *		(i.e., the data checksum), and then calculating the two's complement of the LSB i
 *		(e.g., by inverting its bits and adding one). 
 *	
+*	Some inspiration from
+*		https://www.instructables.com/id/HEX-File-to-Array-in-C/
+*
 */
 
 /* --- include files --- */
+#include "intelhex.h"
+#include <stdio.h>
+# ifndef S_SPLINT_S
+#include <unistd.h>
+#endif
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
 
 /* --- defines and constants --- */
 
@@ -62,3 +74,16 @@
 /* --- main --- */
 
 /* --- functions --- */
+/** @brief Openfile for reading
+*/
+FILE *openfile(uint8_t *file, uint8_t *mode)
+{
+	FILE *fileptr=fopen(file, mode);
+	
+	if ( fileptr==NULL)
+	{
+		perror("Unable to open the file");
+		exit (EXIT_FAILURE);	
+	}	
+	return fileptr;
+}

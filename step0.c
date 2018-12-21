@@ -3,7 +3,7 @@
 * @brief
 * @details 
 * @version
-* @date Wed 05 Dec 2018 05:05:59 PM EST
+* @date Thu 20 Dec 2018 11:12:22 PM EST
 * @author 
 * @copyright The GNU General Public License
 * 
@@ -19,17 +19,25 @@
 */
 
 /* --- include files --- */
+#include "intelhex.h"
+#include <stdio.h>
+# ifndef S_SPLINT_S
+#include <unistd.h>
+#endif
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <argp.h> 
+
 
 /* --- defines and constants --- */
+#define HEXFILESIZEMAX 0x8000
 
 /* --- global variables --- */
 
 /* --- function prototypes --- */
 
 /* --- main --- */
-#include <stdio.h> 
-#include <argp.h> 
-#include <stdlib.h>
 
 char *devicename;
 char *infile;
@@ -64,8 +72,20 @@ parse_opt (int key, char *arg,
 			break; 
 		}
 		case 'p': 
-		{
-			printf ("Program Device Flash using <infile>\n");
+		{	
+			infile=arg;
+			printf ("Program Device Flash using %s \n", infile);
+			//will parse file into an array
+			uint8_t hexarray[HEXFILESIZEMAX];	
+			//bytes read into the array
+			int hexarraysize;	
+			//file to be loaded
+			FILE *hexfile;
+			hexfile=openfile(infile,"rb");
+			printf("file opened \n");
+
+			fclose(hexfile);
+			
 			break; 
 		}
 		case 'r': 
@@ -91,7 +111,7 @@ main (int argc, char **argv)
 		{ 0, 'e', 0, 0, "Erase device. The device will be erased before any other programming takes place."}, 
 		{ 0, 'i', "<inputfile>", 0, "Name of Flash input file. Required for programming or verification of the Flash memory. The file format is Intel Extended HEX."}, 
 		{ 0, 'o', "<outputfile>", 0, "Name of Flash output file. Required for readout of the Flash memoryi to a file. The file format is Intel Extended HEX."}, 
-		{ 0, 'p', 0, 0, "Program device Flash. Corresponding input files are required."}, 
+		{ 0, 'p', "<inputfile>", 0, "Program device Flash. Corresponding input files are required."}, 
 		{ 0, 'r', 0, 0, "Read out device Flash. Will output to stdout if output file is not specified."}, 
 		{ 0, 'v', 0, 0, "Verify device Flash. Can be used with –p or alone. Corresponding input files are required."}, 
 		{ 0 } 
